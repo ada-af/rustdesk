@@ -643,26 +643,36 @@ function handleAbError(err) {
     app.update();
 }
 
-function getAb() {
-    abLoading = true;
-    abError = "";
-    app.update();
-    httpRequest(handler.get_api_server() + "/api/ab/get", #post, {}, function(data) {
+function updshit(data) { // _onSuccess
         if (data) {
-            if (data.error) {
-                handleAbError(data.error);
-                return;
-            }
+            stderr.println(Object.keys(data));
             var tm = data.updated_at;
-            ab = JSON.parse(data.data);
+            try {
+                // stderr.println(typeof(data.data));
+                // ab = JSON.parse(data);
+                ab = data.data;
+                stdout.println(ab.tags);
+                stdout.println(ab.tags);
+            } catch (e) {
+                stderr.println('@ab.tis');
+                stderr.println(e);
+            }
             if (!ab.tags) ab.tags = [];
             if (!ab.peers) ab.peers = [];
         }
         abLoading = false;
         app.update();
-    }, function(err, status) {
+    }
+
+function getAb() {
+    abLoading = true;
+    abError = "";
+    app.update();
+    httpRequest(handler.get_api_server() + "/api/ab/get", #post, {},     updshit    , function(err, status) {
+        stderr.println(status);
         handleAbError(err);
-    }, getHttpHeaders());
+    }
+    , getHttpHeaders());
 }
 
 function updateAb() {
