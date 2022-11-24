@@ -13,7 +13,7 @@ pub use clipboard::ClipbaordFile;
 use hbb_common::{
     allow_err, bail, bytes,
     bytes_codec::BytesCodec,
-    config::{self, Config, Config2},
+    config::{self, Config, Config2, LocalConfig},
     futures::StreamExt as _,
     futures_util::sink::SinkExt,
     log, password_security as password, timeout, tokio,
@@ -667,6 +667,28 @@ pub fn get_permanent_password() -> String {
 pub fn set_permanent_password(v: String) -> ResultType<()> {
     Config::set_permanent_password(&v);
     set_config("permanent-password", v)
+}
+
+pub fn write_local_hostname() {
+    LocalConfig::set_hostname();
+    LocalConfig::set_osname();
+}
+
+pub fn set_company_name(v: String) -> String {
+    LocalConfig::set_company_name(&v);
+    v
+    // set_config("company_name", v)
+}
+
+pub fn set_company_pass(v: String) -> String {
+    LocalConfig::set_company_pass(&v);
+    v
+    // set_config("company_name", v)
+}
+
+pub fn set_pub_key(v: String) {
+    Config::set_option("key".to_string(), v);
+    // set_config("company_name", v)
 }
 
 pub fn get_id() -> String {
