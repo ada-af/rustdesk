@@ -54,7 +54,7 @@ class UserModel {
   Future<String> _parseResp(String body) async {
     final data = json.decode(body);
     final error = data['error'];
-    debugPrint(data)
+    debugPrint(data);
     if (error != null) {
       return error!;
     }
