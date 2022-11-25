@@ -1,11 +1,15 @@
 name: Flutter Nightly Build
 
 on:
-  schedule:
-    # schedule build every night
-    - cron: "0 0 * * *"
   workflow_dispatch:
-
+  pull_request:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+    paths-ignore:
+      - ".github/**"
 env:
   LLVM_VERSION: "10.0"
   FLUTTER_VERSION: "3.0.5"
