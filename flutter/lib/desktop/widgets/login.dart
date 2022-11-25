@@ -436,8 +436,8 @@ Future<bool> loginDialog() async {
       }
 
       curOP.value = 'rustdesk';
-      username = mainGetLocalOption(key: 'company_name');
-      pass = mainGetLocalOption(key: 'company_pass');
+      username = bind.mainGetLocalOption(key: 'company_name');
+      pass = bind.mainGetLocalOption(key: 'company_pass');
       // if (username.isEmpty) {
       //   usernameMsg = translate('Username missed');
       //   cancel();
