@@ -23,8 +23,9 @@ class UserModel {
     if (token == '') return;
     final url = await bind.mainGetApiServer();
     final body = {
-      'id': await bind.mainGetMyId(),
-      'uuid': await bind.mainGetUuid()
+      'uuid': await bind.mainGetUuid(),
+      'username': await bind.mainGetLocalOption(key: 'company_name'),
+      'password': await bind.mainGetLocalOption(key: 'company_pass'),
     };
     try {
       final response = await http.post(Uri.parse('$url/api/currentUser'),
