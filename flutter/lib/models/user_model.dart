@@ -111,12 +111,12 @@ class UserModel {
       final resp = await http.post(Uri.parse('$url/api/login'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
-            'username': await bind.mainGetLocalOption("company_name"),
-            'password': await bind.mainGetLocalOption("company_pass"),
+            'username': await bind.mainGetLocalOption(key: 'company_name'),
+            'password': await bind.mainGetLocalOption(key: 'company_pass'),
             'id': await bind.mainGetMyId(),
             'uuid': await bind.mainGetUuid(),
-            'hostname': await bind.mainGetLocalOption('hostname'),
-            'platform': await bind.mainGetLocalOption('platform')
+            'hostname': await bind.mainGetLocalOption(key: 'hostname'),
+            'platform': await bind.mainGetLocalOption(key: 'platform')
           }));
       final body = jsonDecode(resp.body);
       bind.mainSetLocalOption(

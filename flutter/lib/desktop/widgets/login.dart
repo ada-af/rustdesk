@@ -486,17 +486,17 @@ Future<bool> loginDialog() async {
               curOP: curOP,
               onLogin: onLogin,
             ),
-            const SizedBox(
-              height: 8.0,
-            ),
-            Center(
-                child: Text(
-              translate('or'),
-              style: TextStyle(fontSize: 16),
-            )),
-            const SizedBox(
-              height: 8.0,
-            ),
+            // const SizedBox(
+            //   height: 8.0,
+            // ),
+            // Center(
+            //     child: Text(
+            //   translate('or'),
+            //   style: TextStyle(fontSize: 16),
+            // )),
+            // const SizedBox(
+            //   height: 8.0,
+            // ),
           //   LoginWidgetOP(
           //     ops: [
           //       ConfigOP(op: 'Github', iconWidth: 20),
