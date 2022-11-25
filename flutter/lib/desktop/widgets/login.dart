@@ -510,7 +510,7 @@ Future<bool> loginDialog() async {
           //       close();
           //     },
           //   ),
-          // ],
+          ],
         ),
       ),
       actions: [msgBoxButton(translate('Close'), cancel)],
