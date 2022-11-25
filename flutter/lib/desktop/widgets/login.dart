@@ -497,20 +497,20 @@ Future<bool> loginDialog() async {
             const SizedBox(
               height: 8.0,
             ),
-            LoginWidgetOP(
-              ops: [
-                ConfigOP(op: 'Github', iconWidth: 20),
-                ConfigOP(op: 'Google', iconWidth: 20),
-                ConfigOP(op: 'Okta', iconWidth: 38),
-              ],
-              curOP: curOP,
-              cbLogin: (String username) {
-                gFFI.userModel.userName.value = username;
-                completer.complete(true);
-                close();
-              },
-            ),
-          ],
+          //   LoginWidgetOP(
+          //     ops: [
+          //       ConfigOP(op: 'Github', iconWidth: 20),
+          //       ConfigOP(op: 'Google', iconWidth: 20),
+          //       ConfigOP(op: 'Okta', iconWidth: 38),
+          //     ],
+          //     curOP: curOP,
+          //     cbLogin: (String username) {
+          //       gFFI.userModel.userName.value = username;
+          //       completer.complete(true);
+          //       close();
+          //     },
+          //   ),
+          // ],
         ),
       ),
       actions: [msgBoxButton(translate('Close'), cancel)],
