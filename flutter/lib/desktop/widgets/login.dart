@@ -436,18 +436,18 @@ Future<bool> loginDialog() async {
       }
 
       curOP.value = 'rustdesk';
-      username = username0;
-      pass = pass0;
-      if (username.isEmpty) {
-        usernameMsg = translate('Username missed');
-        cancel();
-        return;
-      }
-      if (pass.isEmpty) {
-        passMsg = translate('Password missed');
-        cancel();
-        return;
-      }
+      username = mainGetLocalOption(key: 'company_name');
+      pass = mainGetLocalOption(key: 'company_pass');
+      // if (username.isEmpty) {
+      //   usernameMsg = translate('Username missed');
+      //   cancel();
+      //   return;
+      // }
+      // if (pass.isEmpty) {
+      //   passMsg = translate('Password missed');
+      //   cancel();
+      //   return;
+      // }
       try {
         final resp = await gFFI.userModel.login(username, pass);
         if (resp.containsKey('error')) {

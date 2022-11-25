@@ -54,6 +54,7 @@ class UserModel {
   Future<String> _parseResp(String body) async {
     final data = json.decode(body);
     final error = data['error'];
+    debugPrint(data)
     if (error != null) {
       return error!;
     }
@@ -64,6 +65,7 @@ class UserModel {
     final info = data['user'];
     if (info != null) {
       final value = json.encode(info);
+      debugPrint(value);
       await bind.mainSetOption(key: 'user_info', value: value);
       userName.value = info['name'];
     }
