@@ -62,9 +62,10 @@ class UserModel {
     if (token != null) {
       await bind.mainSetLocalOption(key: 'access_token', value: token);
     }
+    debugPrint("accessing data[user]");
     debugPrint(data['user']);
+    debugPrint("hmmm? :/");
     final info = data['user'];
-    debugPrint(info);
     if (info != null) {
       final value = json.encode(info);
       debugPrint(value);
