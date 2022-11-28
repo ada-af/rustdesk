@@ -43,7 +43,7 @@ class AbModel {
           debugPrint(data['tags'].toString());
           tags.value = data['tags'];
           } catch (err) {
-            printError("Cannot parse tags: ${err}");
+            debugPrint("Cannot parse tags: ${err}");
           }
           peers.clear();
           for (final peer in data['peers']) {
