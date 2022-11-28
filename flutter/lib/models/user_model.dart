@@ -52,9 +52,8 @@ class UserModel {
     userName.value = '';
   }
 
-  Future<String> _parseResp(String body) async {
+  Future<String> _parseResp(dynamic body) async {
     final data = json.decode(body);
-    debugPrint(data);
     if (data.containsKey('error')) {
       return data['error'];
     }
