@@ -267,7 +267,7 @@ def build_flutter_arch_manjaro(version, features):
     os.system(f'cargo build --features {features} --lib --release')
     ffi_bindgen_function_refactor()
     os.chdir('flutter')
-    os.system('flutter build linux --release')
+    os.system('flutter build linux --release --no-sound-null-safety')
     os.system('strip build/linux/x64/release/bundle/lib/librustdesk.so')
     os.chdir('../res')
     os.system('HBB=`pwd`/.. FLUTTER=1 makepkg -f')
