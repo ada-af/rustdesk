@@ -34,14 +34,16 @@ class AbModel {
           await http.post(Uri.parse(api), headers: await getHttpHeaders());
       debugPrint(resp.body);
       if (resp.body.isNotEmpty && resp.body.toLowerCase() != "null") {
-        Map<String, dynamic> json = jsonDecode(resp.body);
+        Map<String, dynamic> json = new Map<String, dynamic>.from(jsonDecode(resp.body));
         if (json.containsKey('error')) {
           abError = json['error'];
         } else if (json.containsKey('data')) {
           final data = jsonDecode(json['data']);
+          debugPrint(data);
           tags.value = data['tags'];
           peers.clear();
           for (final peer in data['peers']) {
+            debugPrint(peer);
             peers.add(Peer.fromJson(peer));
           }
         }
