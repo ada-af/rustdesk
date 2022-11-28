@@ -39,7 +39,7 @@ class UserModel {
         resetToken();
         return;
       }
-      debugPrint(response);
+      debugPrint(response.body);
       await _parseResp(response.body);
     } catch (e) {
       print('Failed to refreshCurrentUser: $e');
