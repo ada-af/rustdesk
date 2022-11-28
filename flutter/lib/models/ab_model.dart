@@ -28,9 +28,11 @@ class AbModel {
     abLoading.value = true;
     abError.value = "";
     final api = "${await bind.mainGetApiServer()}/api/ab/get";
+    debugPrint(api);
     try {
       final resp =
           await http.post(Uri.parse(api), headers: await getHttpHeaders());
+      debugPrint(resp.body)
       if (resp.body.isNotEmpty && resp.body.toLowerCase() != "null") {
         Map<String, dynamic> json = jsonDecode(resp.body);
         if (json.containsKey('error')) {
