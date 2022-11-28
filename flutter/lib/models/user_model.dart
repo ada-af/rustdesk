@@ -60,10 +60,13 @@ class UserModel {
       return error!;
     }
     final token = data['access_token'];
+    debugPrint(token);
     if (token != null) {
       await bind.mainSetLocalOption(key: 'access_token', value: token);
     }
+    debugPrint(data['user']);
     final info = data['user'];
+    debugPrint(info);
     if (info != null) {
       final value = json.encode(info);
       debugPrint(value);

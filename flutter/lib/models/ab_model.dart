@@ -40,6 +40,7 @@ class AbModel {
         } else if (json.containsKey('data')) {
           final data = jsonDecode(json['data']);
           debugPrint(data);
+          debugPrint(data['tags']);
           tags.value = data['tags'];
           peers.clear();
           for (final peer in data['peers']) {
