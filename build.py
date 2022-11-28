@@ -119,7 +119,7 @@ def generate_build_script_for_docker():
             vcpkg/vcpkg install libvpx libyuv opus
             popd
             # build rustdesk
-            ./build.py --flutter --hwcodec
+            ./build.py --flutter --hwcodec --no-sound-null-safety
         ''')
     os.system("chmod +x /tmp/build.sh")
     os.system("bash /tmp/build.sh")
@@ -228,7 +228,7 @@ def build_flutter_deb(version, features):
     ffi_bindgen_function_refactor()
     os.chdir('flutter')
     os.system('dpkg-deb -R rustdesk.deb tmpdeb')
-    os.system('flutter build linux --release')
+    os.system('flutter build linux --release --no-sound-null-safety')
     os.system('mkdir -p tmpdeb/usr/bin/')
     os.system('mkdir -p tmpdeb/usr/lib/rustdesk')
     os.system('mkdir -p tmpdeb/usr/share/rustdesk/files/systemd/')
@@ -279,7 +279,7 @@ def build_flutter_windows(version, features):
         print("cargo build failed, please check rust source code.")
         exit(-1)
     os.chdir('flutter')
-    os.system('flutter build windows --release')
+    os.system('flutter build windows --release --no-sound-null-safety')
     os.chdir('..')
     shutil.copy2('target/release/deps/dylib_virtual_display.dll', flutter_win_target_dir)
     os.chdir('libs/portable')
