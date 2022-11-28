@@ -54,9 +54,8 @@ class UserModel {
 
   Future<String> _parseResp(String body) async {
     final data = json.decode(body);
-    final error = data['error'];
     debugPrint(data);
-    if (error != null) {
+    if (data.containsKey('error')) {
       return error!;
     }
     final token = data['access_token'];
