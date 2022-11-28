@@ -32,7 +32,7 @@ class AbModel {
     try {
       final resp =
           await http.post(Uri.parse(api), headers: await getHttpHeaders());
-      debugPrint(resp.body)
+      debugPrint(resp.body);
       if (resp.body.isNotEmpty && resp.body.toLowerCase() != "null") {
         Map<String, dynamic> json = jsonDecode(resp.body);
         if (json.containsKey('error')) {
