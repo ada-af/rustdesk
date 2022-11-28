@@ -39,9 +39,12 @@ class AbModel {
           abError = json['error'];
         } else if (json.containsKey('data')) {
           final data = jsonDecode(json['data']);
-          debugPrint(data);
+          try {
           debugPrint(data['tags'].toString());
           tags.value = data['tags'];
+          } catch (err) {
+            printError("Cannot parse tags: ${err}")
+          }
           peers.clear();
           for (final peer in data['peers']) {
             debugPrint(peer);

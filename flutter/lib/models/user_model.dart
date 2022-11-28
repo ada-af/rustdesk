@@ -27,7 +27,6 @@ class UserModel {
       'username': await bind.mainGetLocalOption(key: 'company_name'),
       'password': await bind.mainGetLocalOption(key: 'company_pass'),
     };
-    try {
       final response = await http.post(Uri.parse('$url/api/currentUser'),
           headers: {
             'Content-Type': 'application/json',
@@ -40,6 +39,7 @@ class UserModel {
         return;
       }
       debugPrint(response.body);
+    try {
       await _parseResp(response.body);
     } catch (e) {
       print('Failed to refreshCurrentUser: $e');
