@@ -56,7 +56,7 @@ class UserModel {
     final data = json.decode(body);
     debugPrint(data);
     if (data.containsKey('error')) {
-      return error!;
+      return data['error'];
     }
     final token = data['access_token'];
     debugPrint(token);
