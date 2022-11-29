@@ -47,7 +47,7 @@ class AbModel {
           peers.clear();
           for (final peer in data['peers']) {
             debugPrint(peer);
-            peers.add(Peer.fromJson(Map<String, dynamic>.from(peer));
+            peers.add(Peer.fromJson(Map<String, dynamic>.from(peer)));
           }
         }
         return resp.body;
