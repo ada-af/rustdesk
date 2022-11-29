@@ -63,9 +63,8 @@ class UserModel {
       await bind.mainSetLocalOption(key: 'access_token', value: token);
     }
     debugPrint("accessing data[user]");
-    debugPrint(data['user']);
-    debugPrint("hmmm? :/");
-    final info = data['user'];
+    
+    final info = Map<String, dynamic>.from(data['user']);
     if (info != null) {
       final value = json.encode(info);
       debugPrint(value);
