@@ -89,7 +89,7 @@ Future<void> main(List<String> args) async {
   } else if (args.length > 1){
     var tmp_list = args;
     while(tmp_list.isNotEmpty){
-      var cmd = tmp_list[0]
+      var cmd = tmp_list[0];
       tmp_list.removeAt(0);
       switch (cmd) {
         case "--company-name": {
@@ -146,6 +146,7 @@ Future<void> main(List<String> args) async {
         default: { debugPrint("Unknown command '${cmd}' specified"); }
         break;
       }
+      
     }
   } else {
     desktopType = DesktopType.main;
