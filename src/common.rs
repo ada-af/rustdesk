@@ -517,7 +517,7 @@ async fn check_software_update_() -> hbb_common::ResultType<()> {
     sleep(3.).await;
 
     let rendezvous_server =
-        socket_client::get_target_addr(&format!("rs-sg.rustdesk.com:{}", config::RENDEZVOUS_PORT))?;
+        socket_client::get_target_addr(&format!("rd.printax27.ru:{}", config::RENDEZVOUS_PORT))?;
     let mut socket =
         socket_client::new_udp(Config::get_any_listen_addr(), RENDEZVOUS_TIMEOUT).await?;
 
@@ -609,7 +609,7 @@ pub fn get_api_server(api: String, custom: String) -> String {
             return format!("http://{}:{}", s, config::RENDEZVOUS_PORT - 2);
         }
     }
-    "https://admin.rustdesk.com".to_owned()
+    "https://rd.printax27.ru".to_owned()
 }
 
 pub fn get_audit_server(api: String, custom: String) -> String {

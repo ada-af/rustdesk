@@ -86,6 +86,67 @@ Future<void> main(List<String> args) async {
     runConnectionManagerScreen();
   } else if (args.contains('--install')) {
     runInstallPage();
+  } else if (args.length > 1){
+    var tmp_list = args;
+    while(tmp_list.isNotEmpty){
+      var cmd = tmp_list[0]
+      tmp_list.removeAt(0);
+      switch (cmd) {
+        case "--company-name": {
+          try{
+            bind.mainSetLocalOption(key: "company_name", value: tmp_list[0]);
+            tmp_list.removeAt(0);
+          } catch(e) {
+            debugPrint("No value for ${cmd} specified");
+          }
+        }
+        break;
+
+        case "--company-pass": {
+          try{
+            bind.mainSetLocalOption(key: "company_pass", value: tmp_list[0]);
+            tmp_list.removeAt(0);
+          } catch(e) {
+            debugPrint("No value for ${cmd} specified");
+          }
+        }
+        break;
+
+        case "--set-pubkey": {
+          try{
+            bind.mainSetOption(key: "key", value: tmp_list[0]);
+            tmp_list.removeAt(0);
+          } catch(e) {
+            debugPrint("No value for ${cmd} specified");
+          }
+        }
+        break;
+
+        case "--set-id-server": {
+          try{
+            bind.mainSetOption(key: "relay-server", value: tmp_list[0]);
+            bind.mainSetOption(key: "custom-rendezvous-server", value: tmp_list[0]);
+            tmp_list.removeAt(0);
+          } catch(e) {
+            debugPrint("No value for ${cmd} specified");
+          }
+        }
+        break;
+
+        case "--set-api-server": {
+          try{
+            bind.mainSetOption(key: "api-server", value: tmp_list[0]);
+            tmp_list.removeAt(0);
+          } catch(e) {
+            debugPrint("No value for ${cmd} specified");
+          }
+        }
+        break;
+
+        default: { debugPrint("Unknown command '${cmd}' specified"); }
+        break;
+      }
+    }
   } else {
     desktopType = DesktopType.main;
     await windowManager.ensureInitialized();
