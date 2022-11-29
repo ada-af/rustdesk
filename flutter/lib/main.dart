@@ -86,8 +86,8 @@ Future<void> main(List<String> args) async {
     runConnectionManagerScreen();
   } else if (args.contains('--install')) {
     runInstallPage();
-  } else if (args.length > 1){
-    var tmp_list = args;
+  } else if (args.length >= 1){
+    var tmp_list = args.toList();
     while(tmp_list.isNotEmpty){
       var cmd = tmp_list[0];
       tmp_list.removeAt(0);
