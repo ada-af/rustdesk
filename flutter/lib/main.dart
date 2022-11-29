@@ -29,6 +29,14 @@ import 'models/platform_model.dart';
 int? windowId;
 late List<String> bootArgs;
 
+
+class Pair<T1, T2> {
+  final T1 a;
+  final T2 b;
+
+  Pair(this.a, this.b);
+}
+
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint("launch args: $args");
@@ -86,59 +94,67 @@ Future<void> main(List<String> args) async {
     runConnectionManagerScreen();
   } else if (args.contains('--install')) {
     runInstallPage();
-  } else if (args.length >= 1){
-    var tmp_list = args.toList();
-    while(tmp_list.isNotEmpty){
-      var cmd = tmp_list[0];
-      tmp_list.removeAt(0);
-      switch (cmd) {
-        case "--company-name": {
+  } else if (args.length >= 2){
+    var tmp_list = new List<Pair<String, String>>();
+    try {
+      for (var i = 0; i < args.length; i = i+2) {
+        tmp_list.add(Pair(args[i], args[i+1]));
+      }
+    } catch (e) {}
+    for (final pair in tmp_list) {
+      switch (pair.a) {
+        case "--set-company-name": {
           try{
-            bind.mainSetLocalOption(key: "company_name", value: tmp_list[0]);
+            bind.mainSetLocalOption(key: "company_name", value: pair.b);
             tmp_list.removeAt(0);
           } catch(e) {
             debugPrint("No value for ${cmd} specified");
+            debugPrint("${e}");
           }
         }
         break;
 
-        case "--company-pass": {
+        case "--set-company-pass": {
           try{
-            bind.mainSetLocalOption(key: "company_pass", value: tmp_list[0]);
+            bind.mainSetLocalOption(key: "company_pass", value: pair.b);
             tmp_list.removeAt(0);
           } catch(e) {
             debugPrint("No value for ${cmd} specified");
+            debugPrint("${e}");
           }
         }
         break;
 
         case "--set-pubkey": {
           try{
-            bind.mainSetOption(key: "key", value: tmp_list[0]);
+            bind.mainSetOption(key: "key", value: pair.b);
             tmp_list.removeAt(0);
           } catch(e) {
             debugPrint("No value for ${cmd} specified");
+            debugPrint("${e}");
           }
         }
         break;
 
         case "--set-id-server": {
           try{
-            bind.mainSetOption(key: "relay-server", value: tmp_list[0]);
-            bind.mainSetOption(key: "custom-rendezvous-server", value: tmp_list[0]);
+            bind.mainSetOption(key: "relay-server", value: pair.b);
+            bind.mainSetOption(key: "custom-rendezvous-server", value: pair.b);
             tmp_list.removeAt(0);
           } catch(e) {
             debugPrint("No value for ${cmd} specified");
+            debugPrint("${e}");
           }
         }
         break;
 
         case "--set-api-server": {
           try{
-            bind.mainSetOption(key: "api-server", value: tmp_list[0]);
+            bind.mainSetOption(key: "api-server", value: pair.b);
             tmp_list.removeAt(0);
           } catch(e) {
             debugPrint("No value for ${cmd} specified");
+            debugPrint("${e}");
           }
         }
         break;
@@ -146,7 +162,6 @@ Future<void> main(List<String> args) async {
         default: { debugPrint("Unknown command '${cmd}' specified"); }
         break;
       }
-      
     }
   } else {
     desktopType = DesktopType.main;
