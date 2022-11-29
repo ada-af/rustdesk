@@ -45,8 +45,8 @@ class AbModel {
             debugPrint("Cannot parse tags: ${err}");
           }
           peers.clear();
-          for (final peer in data['peers']) {
-            debugPrint(peer);
+          for (final peer in Map<String, dynamic>.from(data['peers'])) {
+            debugPrint(peer.toString());
             peers.add(Peer.fromJson(Map<String, dynamic>.from(peer)));
           }
         }
