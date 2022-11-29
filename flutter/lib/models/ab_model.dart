@@ -48,7 +48,7 @@ class AbModel {
           debugPrint(data['peers'].toString());
           for (final peer in data['peers']) {
             debugPrint(peer.toString());
-            peers.add(Peer.fromJson(peer.toString()));
+            peers.add(Peer.fromJson(peer));
           }
         }
         return resp.body;
