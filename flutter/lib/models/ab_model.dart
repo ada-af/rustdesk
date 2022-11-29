@@ -37,7 +37,7 @@ class AbModel {
         if (json.containsKey('error')) {
           abError = json['error'];
         } else if (json.containsKey('data')) {
-          final data = jsonDecode(json['data']);
+          final data = Map<String, dynamic>.from(json['data']);
           try {
           debugPrint(data['tags'].toString());
           tags.value = data['tags'];
@@ -47,7 +47,7 @@ class AbModel {
           peers.clear();
           for (final peer in data['peers']) {
             debugPrint(peer);
-            peers.add(Peer.fromJson(peer));
+            peers.add(Peer.fromJson(Map<String, dynamic>.from(peer));
           }
         }
         return resp.body;
