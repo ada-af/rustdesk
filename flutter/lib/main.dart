@@ -95,7 +95,7 @@ Future<void> main(List<String> args) async {
   } else if (args.contains('--install')) {
     runInstallPage();
   } else if (args.length >= 2){
-    var tmp_list = new List<dynamic>();
+    var tmp_list = new List<dynamic>.empty(growable: true);
     try {
       for (var i = 0; i < args.length; i = i+2) {
         tmp_list.add(Pair(args[i], args[i+1]));
