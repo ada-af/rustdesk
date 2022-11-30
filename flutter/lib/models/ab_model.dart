@@ -112,6 +112,25 @@ class AbModel {
     }
   }
 
+  Future<void> pushTagDel(dynamic tag) async {
+    abLoading.value = true;
+    final api = "${await bind.mainGetApiServer()}/api/ab/tag";
+    var authHeaders = await getHttpHeaders();
+    authHeaders['Content-Type'] = "application/json";
+    final body = jsonEncode({"data": tag, 'op': 'delete'});
+    try {
+      final resp =
+          await http.post(Uri.parse(api), headers: authHeaders, body: body);
+      abError.value = "";
+      await pullAb();
+      debugPrint("resp: ${resp.body}");
+    } catch (e) {
+      abError.value = e.toString();
+    } finally {
+      abLoading.value = false;
+    }
+  }
+
   Future<void> pushPeerUpdate(dynamic id) async {
     abLoading.value = true;
     final api = "${await bind.mainGetApiServer()}/api/ab/peer";

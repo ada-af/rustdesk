@@ -425,7 +425,7 @@ class AddressBookTag extends StatelessWidget {
     final items = [
       getEntry(translate("Delete"), () {
         gFFI.abModel.deleteTag(name);
-        gFFI.abModel.pushTag();
+        gFFI.abModel.pushTagDel(name.toString());
         Future.delayed(Duration.zero, () => Get.back());
       }),
     ];
