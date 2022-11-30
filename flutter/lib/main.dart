@@ -96,6 +96,8 @@ Future<void> main(List<String> args) async {
     runInstallPage();
   } else if (args.length >= 2){
     desktopType = DesktopType.main;
+    initUniLinks();
+    await initEnv(kAppTypeMain);
     await windowManager.ensureInitialized();
 
     var tmp_list = new List<dynamic>.empty(growable: true);
