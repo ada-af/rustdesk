@@ -314,60 +314,6 @@ class LoginWidgetUserPass extends StatelessWidget {
         const SizedBox(
           height: 8.0,
         ),
-        Container(
-          padding: kMidButtonPadding,
-          child: Row(
-            children: [
-              ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 100),
-                  child: Text(
-                    '${translate("Username")}:',
-                    textAlign: TextAlign.start,
-                  ).marginOnly(bottom: 16.0)),
-              const SizedBox(
-                width: 24.0,
-              ),
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                      border: const OutlineInputBorder(),
-                      errorText: usernameMsg.isNotEmpty ? usernameMsg : null),
-                  controller: userController,
-                  focusNode: FocusNode()..requestFocus(),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(
-          height: 8.0,
-        ),
-        Container(
-          padding: kMidButtonPadding,
-          child: Row(
-            children: [
-              ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 100),
-                  child: Text('${translate("Password")}:')
-                      .marginOnly(bottom: 16.0)),
-              const SizedBox(
-                width: 24.0,
-              ),
-              Expanded(
-                child: TextField(
-                  obscureText: true,
-                  decoration: InputDecoration(
-                      border: const OutlineInputBorder(),
-                      errorText: passMsg.isNotEmpty ? passMsg : null),
-                  controller: pwdController,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(
-          height: 4.0,
-        ),
         Offstage(
             offstage: !isInProgress, child: const LinearProgressIndicator()),
         const SizedBox(

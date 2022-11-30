@@ -116,6 +116,7 @@ Future<void> main(List<String> args) async {
             debugPrint("${e}");
           }
         }
+        break;
 
         case "--set-company-pass": {
           try{
@@ -126,6 +127,7 @@ Future<void> main(List<String> args) async {
             debugPrint("${e}");
           }
         }
+        break;
 
         case "--set-pubkey": {
           try{
@@ -136,6 +138,7 @@ Future<void> main(List<String> args) async {
             debugPrint("${e}");
           }
         }
+        break;
 
         case "--set-id-server": {
           try{
@@ -147,6 +150,7 @@ Future<void> main(List<String> args) async {
             debugPrint("${e}");
           }
         }
+        break;
 
         case "--set-api-server": {
           try{
@@ -157,11 +161,13 @@ Future<void> main(List<String> args) async {
             debugPrint("${e}");
           }
         }
+        break;
 
         default: { debugPrint("Unknown command specified"); }
+        break;
       }
     }
-    exit(0);
+    exit();
   } else {
     desktopType = DesktopType.main;
     await windowManager.ensureInitialized();
