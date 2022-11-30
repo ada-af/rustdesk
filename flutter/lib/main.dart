@@ -97,10 +97,6 @@ Future<void> main(List<String> args) async {
   } else if (args.length >= 2){
     desktopType = DesktopType.main;
     await windowManager.ensureInitialized();
-    initUniLinks();
-    await initEnv(kAppTypeMain);
-    // trigger connection status updater
-    await bind.mainCheckConnectStatus();
 
     var tmp_list = new List<dynamic>.empty(growable: true);
     try {
@@ -120,7 +116,6 @@ Future<void> main(List<String> args) async {
             debugPrint("${e}");
           }
         }
-        break;
 
         case "--set-company-pass": {
           try{
@@ -131,7 +126,6 @@ Future<void> main(List<String> args) async {
             debugPrint("${e}");
           }
         }
-        break;
 
         case "--set-pubkey": {
           try{
@@ -142,7 +136,6 @@ Future<void> main(List<String> args) async {
             debugPrint("${e}");
           }
         }
-        break;
 
         case "--set-id-server": {
           try{
@@ -154,7 +147,6 @@ Future<void> main(List<String> args) async {
             debugPrint("${e}");
           }
         }
-        break;
 
         case "--set-api-server": {
           try{
@@ -165,12 +157,11 @@ Future<void> main(List<String> args) async {
             debugPrint("${e}");
           }
         }
-        break;
 
         default: { debugPrint("Unknown command specified"); }
-        break;
       }
     }
+    exit(0);
   } else {
     desktopType = DesktopType.main;
     await windowManager.ensureInitialized();
