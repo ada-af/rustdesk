@@ -830,7 +830,7 @@ class AddressBookPeerCard extends BasePeerCard {
           isInProgress = true;
         });
         gFFI.abModel.changeTagForPeer(id, selectedTag);
-        await gFFI.abModel.pushAb();
+        await gFFI.abModel.pushPeerUpdate(id);
         close();
       }
 
