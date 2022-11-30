@@ -95,7 +95,7 @@ Future<void> main(List<String> args) async {
   } else if (args.contains('--install')) {
     runInstallPage();
   } else if (args.length >= 2){
-    var tmp_list = new List<Pair<String, String>>();
+    var tmp_list = new List<dynamic>();
     try {
       for (var i = 0; i < args.length; i = i+2) {
         tmp_list.add(Pair(args[i], args[i+1]));
@@ -159,7 +159,7 @@ Future<void> main(List<String> args) async {
         }
         break;
 
-        default: { debugPrint("Unknown command '${cmd}' specified"); }
+        default: { debugPrint("Unknown command specified"); }
         break;
       }
     }
