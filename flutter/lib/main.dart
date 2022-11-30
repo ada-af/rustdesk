@@ -167,7 +167,7 @@ Future<void> main(List<String> args) async {
         break;
       }
     }
-    exit();
+    exit(0);
   } else {
     desktopType = DesktopType.main;
     await windowManager.ensureInitialized();
