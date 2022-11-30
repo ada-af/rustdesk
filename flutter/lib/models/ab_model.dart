@@ -132,6 +132,26 @@ class AbModel {
     }
   }
 
+  Future<void> pushPeerAlias(dynamic id, dynamic alias) async {
+    abLoading.value = true;
+    final api = "${await bind.mainGetApiServer()}/api/ab/peer";
+    var authHeaders = await getHttpHeaders();
+    authHeaders['Content-Type'] = "application/json";
+    final peerJsonData = {'id': id, 'alias': alias};
+    final body = jsonEncode({"data": jsonEncode({"peer": peerJsonData})});
+    try {
+      final resp =
+          await http.post(Uri.parse(api), headers: authHeaders, body: body);
+      abError.value = "";
+      await pullAb();
+      debugPrint("resp: ${resp.body}");
+    } catch (e) {
+      abError.value = e.toString();
+    } finally {
+      abLoading.value = false;
+    }
+  }
+
   Future<void> pushAb() async {
     abLoading.value = true;
     final api = "${await bind.mainGetApiServer()}/api/ab";

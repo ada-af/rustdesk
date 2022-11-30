@@ -605,7 +605,7 @@ abstract class BasePeerCard extends StatelessWidget {
         await bind.mainSetPeerAlias(id: id, alias: name);
         if (isAddressBook) {
           gFFI.abModel.setPeerAlias(id, name);
-          await gFFI.abModel.pushAb();
+          await gFFI.abModel.pushPeerAlias(id, name);
         }
         if (isAddressBook) {
           gFFI.abModel.pullAb();
