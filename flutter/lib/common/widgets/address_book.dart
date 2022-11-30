@@ -327,7 +327,7 @@ class _AddressBookState extends State<AddressBook> {
           for (final tag in tags) {
             gFFI.abModel.addTag(tag);
           }
-          await gFFI.abModel.pushAb();
+          await gFFI.abModel.pushTag();
           // final currentPeers
         }
         close();

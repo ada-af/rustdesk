@@ -91,6 +91,27 @@ class AbModel {
     it.first.tags = tags;
   }
 
+  Future<void> pushTag() async {
+    abLoading.value = true;
+    final api = "${await bind.mainGetApiServer()}/api/ab/tag";
+    var authHeaders = await getHttpHeaders();
+    authHeaders['Content-Type'] = "application/json";
+    final body = jsonEncode({
+      "data": jsonEncode({"tags": tags})
+    });
+    try {
+      final resp =
+          await http.post(Uri.parse(api), headers: authHeaders, body: body);
+      abError.value = "";
+      await pullAb();
+      debugPrint("resp: ${resp.body}");
+    } catch (e) {
+      abError.value = e.toString();
+    } finally {
+      abLoading.value = false;
+    }
+  }
+
   Future<void> pushAb() async {
     abLoading.value = true;
     final api = "${await bind.mainGetApiServer()}/api/ab";
