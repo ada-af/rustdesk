@@ -108,7 +108,7 @@ Future<void> main(List<String> args) async {
             bind.mainSetLocalOption(key: "company_name", value: pair.b);
             tmp_list.removeAt(0);
           } catch(e) {
-            debugPrint("No value for ${cmd} specified");
+            
             debugPrint("${e}");
           }
         }
@@ -119,7 +119,7 @@ Future<void> main(List<String> args) async {
             bind.mainSetLocalOption(key: "company_pass", value: pair.b);
             tmp_list.removeAt(0);
           } catch(e) {
-            debugPrint("No value for ${cmd} specified");
+            
             debugPrint("${e}");
           }
         }
@@ -130,7 +130,7 @@ Future<void> main(List<String> args) async {
             bind.mainSetOption(key: "key", value: pair.b);
             tmp_list.removeAt(0);
           } catch(e) {
-            debugPrint("No value for ${cmd} specified");
+            
             debugPrint("${e}");
           }
         }
@@ -142,7 +142,7 @@ Future<void> main(List<String> args) async {
             bind.mainSetOption(key: "custom-rendezvous-server", value: pair.b);
             tmp_list.removeAt(0);
           } catch(e) {
-            debugPrint("No value for ${cmd} specified");
+            
             debugPrint("${e}");
           }
         }
@@ -153,7 +153,7 @@ Future<void> main(List<String> args) async {
             bind.mainSetOption(key: "api-server", value: pair.b);
             tmp_list.removeAt(0);
           } catch(e) {
-            debugPrint("No value for ${cmd} specified");
+            
             debugPrint("${e}");
           }
         }
