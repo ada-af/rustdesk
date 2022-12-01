@@ -25,7 +25,6 @@ import 'consts.dart';
 import 'mobile/pages/home_page.dart';
 import 'mobile/pages/server_page.dart';
 import 'models/platform_model.dart';
-import 'desktop/pages/install_page.dart';
 
 int? windowId;
 late List<String> bootArgs;
@@ -95,9 +94,6 @@ Future<void> main(List<String> args) async {
     runConnectionManagerScreen();
   } else if (args.contains('--install')) {
     runInstallPage();
-  } else if (args.contains('--silent-install')) {
-    install_page.install(silent: true);
-    exit(0);
   } else if (args.length >= 2){
     await initEnv(kAppTypeMain);
     
