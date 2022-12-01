@@ -1157,8 +1157,8 @@ pub fn install_run_without_install() {
     run_without_install();
 }
 
-pub fn install_install_me(options: String, path: String) {
-    install_me(options, path, false, false);
+pub fn install_install_me(options: String, path: String, silent: bool) {
+    install_me(options, path, silent, false);
 }
 
 pub fn install_install_path() -> SyncReturn<String> {

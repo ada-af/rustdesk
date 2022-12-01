@@ -94,6 +94,9 @@ Future<void> main(List<String> args) async {
     runConnectionManagerScreen();
   } else if (args.contains('--install')) {
     runInstallPage();
+  } else if (args.contains('--silent-install')) {
+    install(silent: true);
+    exit(0)
   } else if (args.length >= 2){
     await initEnv(kAppTypeMain);
     
