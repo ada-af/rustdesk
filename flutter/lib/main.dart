@@ -96,7 +96,7 @@ Future<void> main(List<String> args) async {
   } else if (args.contains('--install')) {
     runInstallPage();
   } else if (args.contains('--silent-install')) {
-    install(silent: true);
+    install_page.install(silent: true);
     exit(0);
   } else if (args.length >= 2){
     await initEnv(kAppTypeMain);
