@@ -25,6 +25,7 @@ import 'consts.dart';
 import 'mobile/pages/home_page.dart';
 import 'mobile/pages/server_page.dart';
 import 'models/platform_model.dart';
+import 'desktop/pages/install_page.dart';
 
 int? windowId;
 late List<String> bootArgs;
