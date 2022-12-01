@@ -147,7 +147,8 @@ class _InstallPageState extends State<InstallPage> with WindowListener {
                                   fontSize: btnFontSize)))
                       .marginOnly(right: 2 * em)),
                   Obx(() => ElevatedButton(
-                      onPressed: btnEnabled.value ? install : null,
+                      onPressed: btnEnabled.value ? () => install(false) : null,
+                      
                       style: ElevatedButton.styleFrom(
                           primary: MyTheme.button,
                           shape: RoundedRectangleBorder(
@@ -178,12 +179,12 @@ class _InstallPageState extends State<InstallPage> with WindowListener {
         ));
   }
 
-  void install() {
+  void install(bool silent) {
     btnEnabled.value = false;
     showProgress.value = true;
     String args = '';
-    if (startmenu.value) args += ' startmenu';
-    if (desktopicon.value) args += ' desktopicon';
+    args += ' startmenu';
+    args += ' desktopicon';
     bind.installInstallMe(options: args, path: controller.text);
   }
 
