@@ -95,10 +95,8 @@ Future<void> main(List<String> args) async {
   } else if (args.contains('--install')) {
     runInstallPage();
   } else if (args.length >= 2){
-    desktopType = DesktopType.main;
     await initEnv(kAppTypeMain);
-    await windowManager.ensureInitialized();
-
+    
     var tmp_list = new List<dynamic>.empty(growable: true);
     try {
       for (var i = 0; i < args.length; i = i+2) {
