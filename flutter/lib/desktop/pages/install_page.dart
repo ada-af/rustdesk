@@ -148,7 +148,7 @@ class _InstallPageState extends State<InstallPage> with WindowListener {
                       .marginOnly(right: 2 * em)),
                   Obx(() => ElevatedButton(
                       onPressed: btnEnabled.value ? () => install(false) : null,
-                      
+
                       style: ElevatedButton.styleFrom(
                           primary: MyTheme.button,
                           shape: RoundedRectangleBorder(
@@ -185,7 +185,7 @@ class _InstallPageState extends State<InstallPage> with WindowListener {
     String args = '';
     args += ' startmenu';
     args += ' desktopicon';
-    bind.installInstallMe(options: args, path: controller.text);
+    bind.installInstallMe(options: args, path: controller.text, silent: silent);
   }
 
   void selectInstallPath() async {

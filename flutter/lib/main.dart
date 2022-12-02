@@ -94,6 +94,12 @@ Future<void> main(List<String> args) async {
     runConnectionManagerScreen();
   } else if (args.contains('--install')) {
     runInstallPage();
+  } else if (args.contains('--silent-install')) {
+    String args = '';
+    args += ' startmenu';
+    args += ' desktopicon';
+    bind.installInstallMe(options: args, path: "C:\\Program Files\\RustDesk", silent: silent);
+    exit(0);
   } else if (args.length >= 2){
     await initEnv(kAppTypeMain);
     
