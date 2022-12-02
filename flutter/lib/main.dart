@@ -98,7 +98,7 @@ Future<void> main(List<String> args) async {
     String args = '';
     args += ' startmenu';
     args += ' desktopicon';
-    bind.installInstallMe(options: args, path: "C:\\Program Files\\RustDesk", silent: silent);
+    bind.installInstallMe(options: args, path: "C:\\Program Files\\RustDesk", silent: true);
     exit(0);
   } else if (args.length >= 2){
     await initEnv(kAppTypeMain);
