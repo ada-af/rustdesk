@@ -108,7 +108,7 @@ Future<void> main(List<String> args) async {
     try {
       for (var i = 0; i < args.length; i = i+2) { tmp_list.add(Pair(args[i], args[i+1])); }
     } catch (e) {
-      debugPrint("${e}")
+      debugPrint("${e}");
     }
     
     for (final pair in tmp_list) {
