@@ -115,7 +115,7 @@ Future<void> main(List<String> args) async {
         case "--set-company-name": {
           try{
             bind.mainSetLocalOption(key: "company_name", value: pair.b);
-            tmp_list.removeAt(0);
+            
           } catch(e) {
             
             debugPrint("${e}");
@@ -126,7 +126,7 @@ Future<void> main(List<String> args) async {
         case "--set-company-pass": {
           try{
             bind.mainSetLocalOption(key: "company_pass", value: pair.b);
-            tmp_list.removeAt(0);
+            
           } catch(e) {
             
             debugPrint("${e}");
@@ -137,7 +137,7 @@ Future<void> main(List<String> args) async {
         case "--set-pubkey": {
           try{
             bind.mainSetOption(key: "key", value: pair.b);
-            tmp_list.removeAt(0);
+            
           } catch(e) {
             
             debugPrint("${e}");
@@ -149,7 +149,7 @@ Future<void> main(List<String> args) async {
           try{
             bind.mainSetOption(key: "relay-server", value: pair.b);
             bind.mainSetOption(key: "custom-rendezvous-server", value: pair.b);
-            tmp_list.removeAt(0);
+            
           } catch(e) {
             
             debugPrint("${e}");
@@ -160,7 +160,7 @@ Future<void> main(List<String> args) async {
         case "--set-api-server": {
           try{
             bind.mainSetOption(key: "api-server", value: pair.b);
-            tmp_list.removeAt(0);
+            
           } catch(e) {
             
             debugPrint("${e}");
