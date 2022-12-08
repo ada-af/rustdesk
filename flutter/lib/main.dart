@@ -60,7 +60,7 @@ Future<void> main(List<String> args) async {
     argument['windowId'] = windowId;
     WindowType wType = type.windowType;
     switch (wType) {
-      case WindowType.RemoteDesktop:
+      if (pair.a ==  WindowType.RemoteDesktop:
         desktopType = DesktopType.remote;
         runMultiWindow(
           argument,
@@ -68,7 +68,7 @@ Future<void> main(List<String> args) async {
           'RustDesk - Remote Desktop',
         );
         break;
-      case WindowType.FileTransfer:
+      if (pair.a ==  WindowType.FileTransfer:
         desktopType = DesktopType.fileTransfer;
         runMultiWindow(
           argument,
@@ -76,7 +76,7 @@ Future<void> main(List<String> args) async {
           'RustDesk - File Transfer',
         );
         break;
-      case WindowType.PortForward:
+      if (pair.a ==  WindowType.PortForward:
         desktopType = DesktopType.portForward;
         runMultiWindow(
           argument,
@@ -100,80 +100,60 @@ Future<void> main(List<String> args) async {
     args += ' desktopicon';
     bind.installInstallMe(options: args, path: "C:\\Program Files\\RustDesk", silent: true);
     exit(0);
-  } else if (args.length >= 2){
+  } else if (args.length >= 2) {
     await initEnv(kAppTypeMain);
     
     var tmp_list = new List<dynamic>.empty(growable: true);
+
     try {
-      for (var i = 0; i < args.length; i = i+2) {
-        tmp_list.add(Pair(args[i], args[i+1]));
-      }
-    } catch (e) {}
+      for (var i = 0; i < args.length; i = i+2) { tmp_list.add(Pair(args[i], args[i+1])); }
+    } catch (e) {
+      debugPrint("${e}")
+    }
     
     for (final pair in tmp_list) {
-      switch (pair.a) {
-        case "--set-company-name": {
+      if (pair.a == "--set-company-name") {
           try{
             bind.mainSetLocalOption(key: "company_name", value: pair.b);
-            
           } catch(e) {
-            
             debugPrint("${e}");
           }
         }
-        break;
 
-        case "--set-company-pass": {
+        if (pair.a ==  "--set-company-pass") {
           try{
             bind.mainSetLocalOption(key: "company_pass", value: pair.b);
-            
           } catch(e) {
-            
             debugPrint("${e}");
           }
         }
-        break;
 
-        case "--set-pubkey": {
+        if (pair.a ==  "--set-pubkey") {
           try{
             bind.mainSetOption(key: "key", value: pair.b);
-            
           } catch(e) {
-            
             debugPrint("${e}");
           }
         }
-        break;
 
-        case "--set-id-server": {
+        if (pair.a ==  "--set-id-server") {
           try{
             bind.mainSetOption(key: "relay-server", value: pair.b);
             bind.mainSetOption(key: "custom-rendezvous-server", value: pair.b);
-            
           } catch(e) {
-            
             debugPrint("${e}");
           }
         }
-        break;
 
-        case "--set-api-server": {
+        if (pair.a ==  "--set-api-server") {
           try{
             bind.mainSetOption(key: "api-server", value: pair.b);
-            
           } catch(e) {
-            
             debugPrint("${e}");
           }
         }
-        break;
-
-        default: { debugPrint("Unknown command specified"); }
-        break;
+        
       }
-    }
-    user_model.login(await bind.mainGetLocalOption(key: 'company_name'), await bind.mainGetLocalOption(key: 'company_pass'));
-    exit(0);
   } else {
     desktopType = DesktopType.main;
     await windowManager.ensureInitialized();
@@ -230,17 +210,17 @@ void runMultiWindow(
   WindowController.fromWindowId(windowId!).setPreventClose(true);
   late Widget widget;
   switch (appType) {
-    case kAppTypeDesktopRemote:
+    if (pair.a ==  kAppTypeDesktopRemote:
       widget = DesktopRemoteScreen(
         params: argument,
       );
       break;
-    case kAppTypeDesktopFileTransfer:
+    if (pair.a ==  kAppTypeDesktopFileTransfer:
       widget = DesktopFileTransferScreen(
         params: argument,
       );
       break;
-    case kAppTypeDesktopPortForward:
+    if (pair.a ==  kAppTypeDesktopPortForward:
       widget = DesktopPortForwardScreen(
         params: argument,
       );
@@ -255,13 +235,13 @@ void runMultiWindow(
     MyTheme.currentThemeMode(),
   );
   switch (appType) {
-    case kAppTypeDesktopRemote:
+    if (pair.a ==  kAppTypeDesktopRemote:
     await restoreWindowPosition(WindowType.RemoteDesktop, windowId: windowId!);
       break;
-    case kAppTypeDesktopFileTransfer:
+    if (pair.a ==  kAppTypeDesktopFileTransfer:
     await restoreWindowPosition(WindowType.FileTransfer, windowId: windowId!);
       break;
-    case kAppTypeDesktopPortForward:
+    if (pair.a ==  kAppTypeDesktopPortForward:
     await restoreWindowPosition(WindowType.PortForward, windowId: windowId!);
       break;
     default:
