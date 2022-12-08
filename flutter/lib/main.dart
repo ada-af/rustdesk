@@ -102,58 +102,54 @@ Future<void> main(List<String> args) async {
     exit(0);
   } else if (args.length >= 2) {
     await initEnv(kAppTypeMain);
-    
     var tmp_list = new List<dynamic>.empty(growable: true);
-
     try {
-      for (var i = 0; i < args.length; i = i+2) { tmp_list.add(Pair(args[i], args[i+1])); }
+      for (var i = 0; i < args.length; i = i+2) { 
+        tmp_list.add(Pair(args[i], args[i+1])); 
+      }
     } catch (e) {
       debugPrint("${e}");
     }
     
     for (final pair in tmp_list) {
       if (pair.a == "--set-company-name") {
-          try{
-            bind.mainSetLocalOption(key: "company_name", value: pair.b);
-          } catch(e) {
-            debugPrint("${e}");
-          }
+        try{
+          bind.mainSetLocalOption(key: "company_name", value: pair.b);
+        } catch(e) {
+          debugPrint("${e}");
         }
-
-        if (pair.a ==  "--set-company-pass") {
-          try{
-            bind.mainSetLocalOption(key: "company_pass", value: pair.b);
-          } catch(e) {
-            debugPrint("${e}");
-          }
-        }
-
-        if (pair.a ==  "--set-pubkey") {
-          try{
-            bind.mainSetOption(key: "key", value: pair.b);
-          } catch(e) {
-            debugPrint("${e}");
-          }
-        }
-
-        if (pair.a ==  "--set-id-server") {
-          try{
-            bind.mainSetOption(key: "relay-server", value: pair.b);
-            bind.mainSetOption(key: "custom-rendezvous-server", value: pair.b);
-          } catch(e) {
-            debugPrint("${e}");
-          }
-        }
-
-        if (pair.a ==  "--set-api-server") {
-          try{
-            bind.mainSetOption(key: "api-server", value: pair.b);
-          } catch(e) {
-            debugPrint("${e}");
-          }
-        }
-        
       }
+      if (pair.a ==  "--set-company-pass") {
+        try{
+          bind.mainSetLocalOption(key: "company_pass", value: pair.b);
+        } catch(e) {
+          debugPrint("${e}");
+        }
+      }
+      if (pair.a ==  "--set-pubkey") {
+        try{
+          bind.mainSetOption(key: "key", value: pair.b);
+        } catch(e) {
+          debugPrint("${e}");
+        }
+      }
+      if (pair.a ==  "--set-id-server") {
+        try{
+          bind.mainSetOption(key: "relay-server", value: pair.b);
+          bind.mainSetOption(key: "custom-rendezvous-server", value: pair.b);
+        } catch(e) {
+          debugPrint("${e}");
+        }
+      }
+      if (pair.a ==  "--set-api-server") {
+        try{
+          bind.mainSetOption(key: "api-server", value: pair.b);
+        } catch(e) {
+          debugPrint("${e}");
+        }
+      }
+    }
+    exit(0);
   } else {
     desktopType = DesktopType.main;
     await windowManager.ensureInitialized();
