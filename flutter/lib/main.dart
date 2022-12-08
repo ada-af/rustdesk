@@ -172,7 +172,7 @@ Future<void> main(List<String> args) async {
         break;
       }
     }
-    user_model.login(await bind.mainGetLocalOption(key: 'company_name'), await bind.mainGetLocalOption(key: 'company_pass'))
+    user_model.login(await bind.mainGetLocalOption(key: 'company_name'), await bind.mainGetLocalOption(key: 'company_pass'));
     exit(0);
   } else {
     desktopType = DesktopType.main;
