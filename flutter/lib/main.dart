@@ -60,7 +60,7 @@ Future<void> main(List<String> args) async {
     argument['windowId'] = windowId;
     WindowType wType = type.windowType;
     switch (wType) {
-      if (pair.a ==  WindowType.RemoteDesktop:
+      case WindowType.RemoteDesktop:
         desktopType = DesktopType.remote;
         runMultiWindow(
           argument,
@@ -68,7 +68,7 @@ Future<void> main(List<String> args) async {
           'RustDesk - Remote Desktop',
         );
         break;
-      if (pair.a ==  WindowType.FileTransfer:
+      case WindowType.FileTransfer:
         desktopType = DesktopType.fileTransfer;
         runMultiWindow(
           argument,
@@ -76,7 +76,7 @@ Future<void> main(List<String> args) async {
           'RustDesk - File Transfer',
         );
         break;
-      if (pair.a ==  WindowType.PortForward:
+      case WindowType.PortForward:
         desktopType = DesktopType.portForward;
         runMultiWindow(
           argument,
@@ -210,17 +210,17 @@ void runMultiWindow(
   WindowController.fromWindowId(windowId!).setPreventClose(true);
   late Widget widget;
   switch (appType) {
-    if (pair.a ==  kAppTypeDesktopRemote:
+    case kAppTypeDesktopRemote:
       widget = DesktopRemoteScreen(
         params: argument,
       );
       break;
-    if (pair.a ==  kAppTypeDesktopFileTransfer:
+    case kAppTypeDesktopFileTransfer:
       widget = DesktopFileTransferScreen(
         params: argument,
       );
       break;
-    if (pair.a ==  kAppTypeDesktopPortForward:
+    case kAppTypeDesktopPortForward:
       widget = DesktopPortForwardScreen(
         params: argument,
       );
@@ -235,13 +235,13 @@ void runMultiWindow(
     MyTheme.currentThemeMode(),
   );
   switch (appType) {
-    if (pair.a ==  kAppTypeDesktopRemote:
+    case kAppTypeDesktopRemote:
     await restoreWindowPosition(WindowType.RemoteDesktop, windowId: windowId!);
       break;
-    if (pair.a ==  kAppTypeDesktopFileTransfer:
+    case kAppTypeDesktopFileTransfer:
     await restoreWindowPosition(WindowType.FileTransfer, windowId: windowId!);
       break;
-    if (pair.a ==  kAppTypeDesktopPortForward:
+    case kAppTypeDesktopPortForward:
     await restoreWindowPosition(WindowType.PortForward, windowId: windowId!);
       break;
     default:
