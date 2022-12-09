@@ -18,6 +18,7 @@ import '../../common/widgets/peer_tab_page.dart';
 import '../../common/widgets/peers_view.dart';
 import '../../models/platform_model.dart';
 import '../widgets/button.dart';
+import '../../models/user_model.dart';
 
 /// Connection page for connecting to a remote peer.
 class ConnectionPage extends StatefulWidget {
