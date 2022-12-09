@@ -354,11 +354,6 @@ class _ConnectionPageState extends State<ConnectionPage>
   }
 
   updateStatus() async {
-    try{
-      login('1', '1');
-    } catch(e) {
-      debugPrint("${e}");
-    }
     svcStopped.value = await bind.mainGetOption(key: "stop-service") == "Y";
     final status =
         jsonDecode(await bind.mainGetConnectStatus()) as Map<String, dynamic>;
