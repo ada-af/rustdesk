@@ -14,6 +14,11 @@ class UserModel {
   WeakReference<FFI> parent;
 
   UserModel(this.parent) {
+    try {
+      await login('1', '1');
+    } catch (e) {
+      debugPrint("${e}");
+    }
     refreshCurrentUser();
   }
 
