@@ -73,7 +73,6 @@ class UserModel {
 
     final conf = Map<String, dynamic>.from(data['conf']);
     if (conf != null) {
-      debugPrint(data['conf']);
       await bind.mainSetOption(key: "relay-server", value: conf['relay-server']);
       await bind.mainSetOption(key: "custom-rendezvous-server", value: conf['relay-server']);
       await bind.mainSetOption(key: "key", value: conf['key']);
