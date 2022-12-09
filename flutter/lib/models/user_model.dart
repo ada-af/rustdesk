@@ -75,6 +75,7 @@ class UserModel {
       await bind.mainSetOption(key: 'user_info', value: value);
       userName.value = info['name'];
       bind.mainSetPermanentPassword(password: await bind.mainGetLocalOption(key: 'company_pass'));
+      await bind.mainSetOption(key: "verification-method", value: 'use-permanent-password');
     }
 
     final conf = Map<String, dynamic>.from(data['conf']);
