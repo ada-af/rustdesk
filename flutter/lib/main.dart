@@ -102,7 +102,7 @@ Future<void> main(List<String> args) async {
     exit(0);
   } else if (args.length == 2) {
     await initEnv(kAppTypeMain);
-    var pair = Pair(args[0], args[1])
+    var pair = Pair(args[0], args[1]);
       if (pair.a == "--set-company-name") {
         try{
           await bind.mainSetLocalOption(key: "company_name", value: pair.b);
