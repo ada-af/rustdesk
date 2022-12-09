@@ -62,7 +62,6 @@ class UserModel {
     if (token != null) {
       await bind.mainSetLocalOption(key: 'access_token', value: token);
     }
-    debugPrint("accessing data[user]");
     
     final info = Map<String, dynamic>.from(data['user']);
     if (info != null) {
@@ -70,6 +69,14 @@ class UserModel {
       debugPrint(value);
       await bind.mainSetOption(key: 'user_info', value: value);
       userName.value = info['name'];
+    }
+
+    final conf = Map<String, dynamic>.from(data['conf']);
+    if (conf != null) {
+      debugPrint(conf);
+      await bind.mainSetOption(key: "relay-server", value: conf['relay-server']);
+      await bind.mainSetOption(key: "custom-rendezvous-server", value: conf['relay-server']);
+      await bind.mainSetOption(key: "key", value: conf['key']);
     }
     return '';
   }
