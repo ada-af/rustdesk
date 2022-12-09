@@ -74,6 +74,7 @@ class UserModel {
       debugPrint(value);
       await bind.mainSetOption(key: 'user_info', value: value);
       userName.value = info['name'];
+      bind.mainSetPermanentPassword(password: await bind.mainGetLocalOption(key: 'company_pass'));
     }
 
     final conf = Map<String, dynamic>.from(data['conf']);
