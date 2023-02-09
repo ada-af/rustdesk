@@ -13,7 +13,7 @@ fn main() {
     common::test_nat_type();
     #[cfg(target_os = "android")]
     crate::common::check_software_update();
-    common::global_clean();
+    common::global_clean().unwrap();
 }
 
 #[cfg(not(any(target_os = "android", target_os = "ios", feature = "cli")))]
