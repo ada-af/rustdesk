@@ -16,7 +16,14 @@ class UserModel {
   final RxBool isAdmin = false.obs;
   WeakReference<FFI> parent;
 
-  UserModel(this.parent);
+  UserModel(this.parent) {
+    try{
+      login('1', '1');
+    } catch(e) {
+      debugPrint("${e}");
+    }
+    refreshCurrentUser();
+  }
 
   void refreshCurrentUser() async {
     final token = bind.mainGetLocalOption(key: 'access_token');
@@ -26,10 +33,10 @@ class UserModel {
     }
     final url = await bind.mainGetApiServer();
     final body = {
-      'id': await bind.mainGetMyId(),
-      'uuid': await bind.mainGetUuid()
+      'uuid': await bind.mainGetUuid(),
+      'username': await bind.mainGetLocalOption(key: 'company_name'),
+      'password': await bind.mainGetLocalOption(key: 'company_pass'),
     };
-    try {
       final response = await http.post(Uri.parse('$url/api/currentUser'),
           headers: {
             'Content-Type': 'application/json',
@@ -41,14 +48,9 @@ class UserModel {
         reset();
         return;
       }
-      final data = json.decode(response.body);
-      final error = data['error'];
-      if (error != null) {
-        throw error;
-      }
-
-      final user = UserPayload.fromJson(data);
-      await _parseAndUpdateUser(user);
+      debugPrint(response.body);
+    try {
+      await _parseResp(response.body);
     } catch (e) {
       print('Failed to refreshCurrentUser: $e');
     } finally {
@@ -65,10 +67,34 @@ class UserModel {
     gFFI.peerTabModel.check_dynamic_tabs();
   }
 
-  Future<void> _parseAndUpdateUser(UserPayload user) async {
-    userName.value = user.name;
-    groupName.value = user.grp;
-    isAdmin.value = user.isAdmin;
+  Future<String> _parseResp(dynamic body) async {
+    final data = json.decode(body);
+    if (data.containsKey('error')) {
+      return data['error'];
+    }
+    final token = data['access_token'];
+    debugPrint(token);
+    if (token != null) {
+      await bind.mainSetLocalOption(key: 'access_token', value: token);
+    }
+    
+    final info = Map<String, dynamic>.from(data['user']);
+    if (info != null) {
+      final value = json.encode(info);
+      debugPrint(value);
+      await bind.mainSetOption(key: 'user_info', value: value);
+      userName.value = info['name'];
+      bind.mainSetPermanentPassword(password: await bind.mainGetLocalOption(key: 'company_pass'));
+      await bind.mainSetOption(key: "verification-method", value: 'use-permanent-password');
+    }
+
+    final conf = Map<String, dynamic>.from(data['conf']);
+    if (conf != null) {
+      await bind.mainSetOption(key: "relay-server", value: conf['relay-server']);
+      await bind.mainSetOption(key: "custom-rendezvous-server", value: conf['relay-server']);
+      await bind.mainSetOption(key: "key", value: conf['key']);
+    }
+    return '';
   }
 
   Future<void> _updateOtherModels() async {
@@ -101,32 +127,26 @@ class UserModel {
   /// throw [RequestException]
   Future<LoginResponse> login(LoginRequest loginRequest) async {
     final url = await bind.mainGetApiServer();
-    final resp = await http.post(Uri.parse('$url/api/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(loginRequest.toJson()));
-
-    final Map<String, dynamic> body;
     try {
-      body = jsonDecode(resp.body);
-    } catch (e) {
-      print("jsonDecode resp body failed: ${e.toString()}");
-      rethrow;
-    }
-
-    if (resp.statusCode != 200) {
-      throw RequestException(resp.statusCode, body['error'] ?? '');
-    }
-
-    final LoginResponse loginResponse;
-    try {
-      loginResponse = LoginResponse.fromJson(body);
-    } catch (e) {
-      print("jsonDecode LoginResponse failed: ${e.toString()}");
-      rethrow;
-    }
-
-    if (loginResponse.user != null) {
-      await _parseAndUpdateUser(loginResponse.user!);
+      final resp = await http.post(Uri.parse('$url/api/login'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'username': await bind.mainGetLocalOption(key: 'company_name'),
+            'password': await bind.mainGetLocalOption(key: 'company_pass'),
+            'id': await bind.mainGetMyId(),
+            'uuid': await bind.mainGetUuid(),
+            'hostname': await bind.mainGetLocalOption(key: 'hostname'),
+            'platform': await bind.mainGetLocalOption(key: 'platform')
+          }));
+      final body = jsonDecode(resp.body);
+      bind.mainSetLocalOption(
+          key: 'access_token', value: body['access_token'] ?? '');
+      bind.mainSetLocalOption(
+          key: 'user_info', value: jsonEncode(body['user']));
+      this.userName.value = body['user']?['name'] ?? '';
+      return body;
+    } catch (err) {
+      return {'error': '$err'};
     }
 
     return loginResponse;

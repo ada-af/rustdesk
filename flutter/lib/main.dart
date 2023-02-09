@@ -35,6 +35,14 @@ late List<String> kBootArgs;
 /// Uni links.
 StreamSubscription? _uniLinkSubscription;
 
+
+class Pair<T1, T2> {
+  final T1 a;
+  final T2 b;
+
+  Pair(this.a, this.b);
+}
+
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint("launch args: $args");
@@ -95,8 +103,55 @@ Future<void> main(List<String> args) async {
     runConnectionManagerScreen(args.contains('--hide'));
   } else if (args.contains('--install')) {
     runInstallPage();
+  } else if (args.contains('--silent-install')) {
+    String args = '';
+    args += ' startmenu';
+    args += ' desktopicon';
+    bind.installInstallMe(options: args, path: "C:\\Program Files\\RustDesk", silent: true);
+    exit(0);
+  } else if (args.length == 2) {
+    await initEnv(kAppTypeMain);
+    var pair = Pair(args[0], args[1]);
+      if (pair.a == "--set-company-name") {
+        try{
+          await bind.mainSetLocalOption(key: "company_name", value: pair.b);
+        } catch(e) {
+          debugPrint("${e}");
+        }
+      }
+      if (pair.a ==  "--set-company-pass") {
+        try{
+          await bind.mainSetLocalOption(key: "company_pass", value: pair.b);
+        } catch(e) {
+          debugPrint("${e}");
+        }
+      }
+      if (pair.a ==  "--set-pubkey") {
+        try{
+          await bind.mainSetOption(key: "key", value: pair.b);
+        } catch(e) {
+          debugPrint("${e}");
+        }
+      }
+      if (pair.a ==  "--set-id-server") {
+        try{
+          await bind.mainSetOption(key: "relay-server", value: pair.b);
+          await bind.mainSetOption(key: "custom-rendezvous-server", value: pair.b);
+        } catch(e) {
+          debugPrint("${e}");
+        }
+      }
+      if (pair.a ==  "--set-api-server") {
+        try{
+          await bind.mainSetOption(key: "api-server", value: pair.b);
+        } catch(e) {
+          debugPrint("${e}");
+        }
+      }
+    exit(0);
   } else {
     desktopType = DesktopType.main;
+    bind.AutoupdaterCheckUpdate();
     await windowManager.ensureInitialized();
     windowManager.setPreventClose(true);
     runMainApp(true);

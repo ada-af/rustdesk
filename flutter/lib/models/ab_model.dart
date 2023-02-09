@@ -26,25 +26,26 @@ class AbModel {
     abLoading.value = true;
     abError.value = "";
     final api = "${await bind.mainGetApiServer()}/api/ab/get";
+    debugPrint(api);
     try {
       final resp = await http.post(Uri.parse(api), headers: getHttpHeaders());
       if (resp.body.isNotEmpty && resp.body.toLowerCase() != "null") {
-        Map<String, dynamic> json = jsonDecode(resp.body);
+        Map<String, dynamic> json = new Map<String, dynamic>.from(jsonDecode(resp.body));
         if (json.containsKey('error')) {
           abError.value = json['error'];
         } else if (json.containsKey('data')) {
-          final data = jsonDecode(json['data']);
-          if (data != null) {
-            tags.clear();
-            peers.clear();
-            if (data['tags'] is List) {
-              tags.value = data['tags'];
-            }
-            if (data['peers'] is List) {
-              for (final peer in data['peers']) {
-                peers.add(Peer.fromJson(peer));
-              }
-            }
+          final data = Map<String, dynamic>.from(json['data']);
+          try {
+          debugPrint(data['tags'].toString());
+          tags.value = data['tags'];
+          } catch (err) {
+            debugPrint("Cannot parse tags: ${err}");
+          }
+          peers.clear();
+          debugPrint(data['peers'].toString());
+          for (final peer in data['peers']) {
+            debugPrint(peer.toString());
+            peers.add(Peer.fromJson(peer));
           }
         }
         return resp.body;
@@ -96,6 +97,86 @@ class AbModel {
       return;
     }
     it.first.tags = tags;
+  }
+
+  Future<void> pushTag() async {
+    abLoading.value = true;
+    final api = "${await bind.mainGetApiServer()}/api/ab/tag";
+    var authHeaders = await getHttpHeaders();
+    authHeaders['Content-Type'] = "application/json";
+    final body = jsonEncode({
+      "data": jsonEncode({"tags": tags})
+    });
+    try {
+      final resp =
+          await http.post(Uri.parse(api), headers: authHeaders, body: body);
+      abError.value = "";
+      await pullAb();
+      debugPrint("resp: ${resp.body}");
+    } catch (e) {
+      abError.value = e.toString();
+    } finally {
+      abLoading.value = false;
+    }
+  }
+
+  Future<void> pushTagDel(dynamic tag) async {
+    abLoading.value = true;
+    final api = "${await bind.mainGetApiServer()}/api/ab/tag";
+    var authHeaders = await getHttpHeaders();
+    authHeaders['Content-Type'] = "application/json";
+    final body = jsonEncode({"data": tag, 'op': 'delete'});
+    try {
+      final resp =
+          await http.post(Uri.parse(api), headers: authHeaders, body: body);
+      abError.value = "";
+      await pullAb();
+      debugPrint("resp: ${resp.body}");
+    } catch (e) {
+      abError.value = e.toString();
+    } finally {
+      abLoading.value = false;
+    }
+  }
+
+  Future<void> pushPeerUpdate(dynamic id) async {
+    abLoading.value = true;
+    final api = "${await bind.mainGetApiServer()}/api/ab/peer";
+    var authHeaders = await getHttpHeaders();
+    authHeaders['Content-Type'] = "application/json";
+    final peerJsonData = {'id': id, 'tags': gFFI.abModel.getPeerTags(id).obs};
+    final body = jsonEncode({"data": jsonEncode({"peer": peerJsonData})});
+    try {
+      final resp =
+          await http.post(Uri.parse(api), headers: authHeaders, body: body);
+      abError.value = "";
+      await pullAb();
+      debugPrint("resp: ${resp.body}");
+    } catch (e) {
+      abError.value = e.toString();
+    } finally {
+      abLoading.value = false;
+    }
+  }
+
+  Future<void> pushPeerAlias(dynamic id, dynamic alias) async {
+    abLoading.value = true;
+    final api = "${await bind.mainGetApiServer()}/api/ab/peer";
+    var authHeaders = await getHttpHeaders();
+    authHeaders['Content-Type'] = "application/json";
+    final peerJsonData = {'id': id, 'alias': alias};
+    final body = jsonEncode({"data": jsonEncode({"peer": peerJsonData})});
+    try {
+      final resp =
+          await http.post(Uri.parse(api), headers: authHeaders, body: body);
+      abError.value = "";
+      await pullAb();
+      debugPrint("resp: ${resp.body}");
+    } catch (e) {
+      abError.value = e.toString();
+    } finally {
+      abLoading.value = false;
+    }
   }
 
   Future<void> pushAb() async {

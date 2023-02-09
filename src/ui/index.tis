@@ -22,6 +22,7 @@ var svg_menu = <svg #menu viewBox="0 0 512 512">
 var svg_refresh_password = <svg #refresh-password xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 2v6h6M2.66 15.57a10 10 0 1 0 .57-8.38"/></svg>;
 
 var my_id = "";
+var company_name = "";
 function get_id() {
   my_id = handler.get_id();
   return my_id;
@@ -259,7 +260,8 @@ class Enhancements: Reactor.Component {
 
 function getUserName() {
     try {
-        return JSON.parse(handler.get_local_option("user_info")).name;
+        n = JSON.parse(handler.get_local_option("user_info")).name;
+        return n;
     } catch(e) {}
     return '';
 }
@@ -313,7 +315,6 @@ class MyIdMenu: Reactor.Component {
                 {username ? 
                 <li #logout>{translate('Logout')} ({username})</li> :
                 <li #login>{translate('Login')}</li>}
-                {handler.is_ok_change_id() && key_confirmed ? <li #change-id>{translate('Change ID')}</li> : ""}
                 <div .separator />
                 <li #allow-darktheme><span>{svg_checkmark}</span>{translate('Dark Theme')}</li>
                 <Languages />
@@ -321,7 +322,7 @@ class MyIdMenu: Reactor.Component {
             </menu>
         </popup>;
     }
-
+                /* {handler.is_ok_change_id() && key_confirmed ? <li #change-id>{translate('Change ID')}</li> : ""} */
     event click $(svg#menu) (_, me) {
         this.showSettingMenu();
     }
@@ -1170,47 +1171,80 @@ function check_if_overlay() {
 
 checkConnectStatus();
 
+function getCompanyName() {
+    try {
+        var nme = handler.get_local_option("company_name");
+        return nme
+    } catch(e) {
+        return '';
+    }
+}
+
+function getCompanyPass() {
+    try {
+        var nme = handler.get_local_option("company_pass");
+        return nme
+    } catch(e) {
+        return '';
+    }
+}
+
+function gethostname() {
+    try {
+        var nme = handler.get_local_option("hostname");
+        return nme
+    } catch(e) {
+        return '';
+    }
+}
+
+function getplatform() {
+    try {
+        var nme = handler.get_local_option("platform");
+        return nme
+    } catch(e) {
+        return '';
+    }
+}
+
 function login() {
-    var name0 = getUserName();
-    var pass0 = '';
-    msgbox("custom-login", translate('Login'), <div .form .set-password> 
-            <div><span>{translate('Username')}:</span><input|text name="username" value={name0} .outline-focus /></div> 
-            <div><span>{translate('Password')}:</span><PasswordComponent value={pass0} /></div> 
-        </div>, "", function(res=null, show_progress) {
-        if (!res) return;
-        show_progress();
-        var name = (res.username || '').trim();
-        if (!name) {
-            show_progress(false, translate("Username missed"));
-            return " ";
+    // msgbox("custom-login", translate('Login'), <div .form .set-password> 
+    //         <div><span>{translate('Username')}:</span><input|text name="username" value={name0} .outline-focus /></div> 
+    //         <div><span>{translate('Password')}:</span><PasswordComponent value={pass0} /></div> 
+    //     </div>, "", function(res=null, show_progress) {
+    //     // if (!res) return;
+    //     show_progress();
+    var name = getCompanyName();
+    if (!name) {
+        // show_progress(false, translate("Username missed"));
+        stderr.println('No company name specified');
+        return " ";
+    }
+    var pass = getCompanyPass();
+    if (!pass) {
+        stderr.println('No password specified');
+        // show_progress(false, translate("Password missed"));
+        return " ";
+    }
+    var url = handler.get_api_server();
+    httpRequest(url + "/api/login", #post, {username: name, password: pass, id: my_id, uuid: handler.get_uuid(), hostname: gethostname(), platform: getplatform()},
+        function(data) {
+        if (data.error) {
+            abLoading = false;
+            var err = translate(data.error);
+            show_progress(false, err);
+            return;
         }
-        var pass = (res.password || '').trim();
-        if (!pass) {
-            show_progress(false, translate("Password missed"));
-            return " ";
-        }
-        abLoading = true;
-        var url = handler.get_api_server();
-        httpRequest(url + "/api/login", #post, {username: name, password: pass, id: my_id, uuid: handler.get_uuid()}, function(data) {
-            if (data.error) {
-                abLoading = false;
-                var err = translate(data.error);
-                show_progress(false, err);
-                return;
-            }
-            handler.set_local_option("access_token", data.access_token);
-            handler.set_local_option("user_info", JSON.stringify(data.user));
-            show_progress(-1);
-            myIdMenu.update();
-            getAb();
+        handler.set_local_option("access_token", data.access_token);
+        myIdMenu.update();
+        getAb(getCompanyName(), getCompanyPass(), handler.get_uuid());
         }, function(err, status) {
             abLoading = false;
             err = translate(err);
             if (url.indexOf('rustdesk') < 0) err = url + ', ' + err;
             show_progress(false, err);
-        });
-        return " ";
-      });
+        }
+    );
 }
 
 function reset_token() {
@@ -1234,18 +1268,20 @@ function logout() {
 }
 
 function refreshCurrentUser() {
+    var name = getCompanyName();
+    var pass = getCompanyPass();
     if (!handler.get_local_option("access_token")) return;
     abLoading = true;
     abError = "";
     app.update();
-    httpRequest(handler.get_api_server() + "/api/currentUser", #post, {id: my_id, uuid: handler.get_uuid()}, function(data) {
+    httpRequest(handler.get_api_server() + "/api/currentUser", #post, {username: name, password: pass, uuid: handler.get_uuid()}, function(data) {
         if (data.error) {
             handleAbError(data.error);
             return;
         }
         handler.set_local_option("user_info", JSON.stringify(data));
         myIdMenu.update();
-        getAb();
+        getAb(getCompanyName(), getCompanyPass(), handler.get_uuid());
     }, function(err, status) {
         if (status == 401 || status == 400) {
             reset_token();

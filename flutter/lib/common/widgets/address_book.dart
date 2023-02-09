@@ -364,7 +364,7 @@ class _AddressBookState extends State<AddressBook> {
           for (final tag in tags) {
             gFFI.abModel.addTag(tag);
           }
-          await gFFI.abModel.pushAb();
+          await gFFI.abModel.pushTag();
           // final currentPeers
         }
         close();
@@ -462,7 +462,7 @@ class AddressBookTag extends StatelessWidget {
     final items = [
       getEntry(translate("Delete"), () {
         gFFI.abModel.deleteTag(name);
-        gFFI.abModel.pushAb();
+        gFFI.abModel.pushTagDel(name.toString());
         Future.delayed(Duration.zero, () => Get.back());
       }),
     ];

@@ -626,8 +626,16 @@ abstract class BasePeerCard extends StatelessWidget {
         isInProgress.value = true;
         String name = controller.text.trim();
         await bind.mainSetPeerAlias(id: id, alias: name);
-        gFFI.abModel.setPeerAlias(id, name);
-        _update();
+        if (isAddressBook) {
+          gFFI.abModel.setPeerAlias(id, name);
+          await gFFI.abModel.pushPeerAlias(id, name.toString());
+        }
+        if (isAddressBook) {
+          gFFI.abModel.pullAb();
+        } else {
+          bind.mainLoadRecentPeers();
+          bind.mainLoadFavPeers();
+        }
         close();
         isInProgress.value = false;
       }
@@ -883,7 +891,7 @@ class AddressBookPeerCard extends BasePeerCard {
           isInProgress = true;
         });
         gFFI.abModel.changeTagForPeer(id, selectedTag);
-        await gFFI.abModel.pushAb();
+        await gFFI.abModel.pushPeerUpdate(id);
         close();
       }
 

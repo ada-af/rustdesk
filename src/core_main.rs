@@ -17,6 +17,7 @@ pub fn core_main() -> Option<Vec<String>> {
     let mut _is_quick_support = false;
     let mut _is_flutter_connect = false;
     let mut arg_exe = Default::default();
+    crate::ipc::write_local_hostname();
     for arg in std::env::args() {
         // to-do: how to pass to flutter?
         if i == 0 {
@@ -237,6 +238,21 @@ pub fn core_main() -> Option<Vec<String>> {
                 }
             }
             return None;
+        } else if args[0] == "--set-company" {
+            if args.len() == 2 {
+                crate::ipc::set_company_name(args[1].to_owned());
+            }
+            return None
+        } else if args[0] == "--set-pub-key" {
+            if args.len() == 2 {
+                crate::ipc::set_pub_key(args[1].to_owned());
+            }
+            return None
+        } else if args[0] == "--set-company-pass" {
+            if args.len() == 2 {
+                crate::ipc::set_company_pass(args[1].to_owned());
+            }
+            return None
         } else if args[0] == "--check-hwcodec-config" {
             #[cfg(feature = "hwcodec")]
             scrap::hwcodec::check_config();

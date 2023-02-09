@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex, RwLock},
     time::SystemTime,
+    env,
 };
 
 use anyhow::Result;
@@ -81,17 +82,10 @@ const CHARS: &[char] = &[
     'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
 ];
 
-pub const RENDEZVOUS_SERVERS: &[&str] = &[
-    "rs-ny.rustdesk.com",
-    "rs-sg.rustdesk.com",
-    "rs-cn.rustdesk.com",
+pub const RENDEZVOUS_SERVERS: &'static [&'static str] = &[
+    "rd.printax27.ru",
 ];
-
-pub const RS_PUB_KEY: &str = match option_env!("RS_PUB_KEY") {
-    Some(key) if !key.is_empty() => key,
-    _ => "OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw=",
-};
-
+pub const RS_PUB_KEY: &'static str = "Tlv8OBJJZh1BYy5GOfVZaiFwgENNL16oDBqSgKneF4Q=";
 pub const RENDEZVOUS_PORT: i32 = 21116;
 pub const RELAY_PORT: i32 = 21117;
 
@@ -1143,7 +1137,9 @@ impl LocalConfig {
     }
 
     pub fn get_option(k: &str) -> String {
+        // println!("Attempt to get key {}", k.to_string());
         if let Some(v) = LOCAL_CONFIG.read().unwrap().options.get(k) {
+            // println!("{}", v.to_string());
             v.clone()
         } else {
             "".to_owned()
@@ -1161,6 +1157,22 @@ impl LocalConfig {
             }
             config.store();
         }
+    }
+
+    pub fn set_company_name(name: &str) {
+        Self::set_option("company_name".to_string(), name.to_string());
+    }
+
+    pub fn set_company_pass(pass: &str) {
+        Self::set_option("company_pass".to_string(), pass.to_string());
+    }
+
+    pub fn set_hostname() {
+        Self::set_option("hostname".to_string(), gethostname::gethostname().into_string().unwrap());
+    }
+
+    pub fn set_osname() {
+        Self::set_option("platform".to_string(), env::consts::OS.to_string());
     }
 
     pub fn get_flutter_config(k: &str) -> String {
