@@ -25,9 +25,9 @@ jobs:
       fail-fast: false
       matrix:
         job:
-          - { target: i686-pc-windows-msvc        , os: windows-2016                  }
+          - { target: i686-pc-windows-msvc        , os: windows-2019                  }
           # - { target: x86_64-pc-windows-gnu       , os: windows-2019                  }
-          - { target: x86_64-pc-windows-msvc      , os: windows-2016 }
+          - { target: x86_64-pc-windows-msvc      , os: windows-2019 }
     steps:
       - name: Checkout source code
         uses: actions/checkout@v3
