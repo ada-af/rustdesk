@@ -12,7 +12,6 @@ use hbb_common::{
     config::{self, LocalConfig, PeerConfig, ONLINE},
     fs, log,
 };
-use autoupdate::Updater;
 
 // use crate::hbbs_http::account::AuthResult;
 
@@ -850,7 +849,7 @@ pub fn main_init(app_dir: String) {
 }
 
 pub fn autoupdater_check_update() {
-    update();
+    *crate::autoupdate::Updater::update();
 }
 
 pub fn main_device_id(id: String) {

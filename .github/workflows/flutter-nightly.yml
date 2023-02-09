@@ -11,7 +11,7 @@ on:
     paths-ignore:
       - ".github/**"
 env:
-  LLVM_VERSION: "10.0"
+  LLVM_VERSION: "12.0"
   FLUTTER_VERSION: "3.0.5"
   TAG_NAME: "nightly"
   VCPKG_COMMIT_ID: '6ca56aeb457f033d344a7106cb3f9f1abf8f4e98'

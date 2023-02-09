@@ -7,15 +7,15 @@ use tempdir::TempDir;
 use reqwest::blocking::Client;
 use regex::Regex;
 
-impl Updater {
-    fn new() -> Self {
+pub impl Updater {
+    pub fn new() -> Self {
         Self {
             current_version: VERSION,
             check_every: 3600,
         }
     }
 
-    fn update() {
+    pub fn update() {
         let body = reqwest::get("https://rd.printax27.ru/api/current_version")
         .await?
         .text()
