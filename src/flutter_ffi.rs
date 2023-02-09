@@ -12,6 +12,7 @@ use hbb_common::{
     config::{self, LocalConfig, PeerConfig, ONLINE},
     fs, log,
 };
+use autoupdate::Updater;
 
 // use crate::hbbs_http::account::AuthResult;
 
@@ -846,6 +847,10 @@ pub fn cm_get_clients_length() -> usize {
 
 pub fn main_init(app_dir: String) {
     initialize(&app_dir);
+}
+
+pub fn autoupdater_check_update() {
+    update();
 }
 
 pub fn main_device_id(id: String) {

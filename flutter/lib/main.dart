@@ -142,6 +142,7 @@ Future<void> main(List<String> args) async {
     exit(0);
   } else {
     desktopType = DesktopType.main;
+    bind.AutoupdaterCheckUpdate();
     await windowManager.ensureInitialized();
     windowManager.setPreventClose(true);
     runMainApp(true);
