@@ -21,7 +21,7 @@ use std::{
     str::FromStr,
 };
 
-mod autoupdate;
+// mod autoupdate;
 
 // use crate::hbbs_http::account::AuthResult;
 
@@ -897,9 +897,9 @@ pub fn main_init(app_dir: String) {
     initialize(&app_dir);
 }
 
-pub fn autoupdater_check_update() {
-    autoupdate::Updater::update();
-}
+// pub fn autoupdater_check_update() {
+//     autoupdate::Updater::update();
+// }
 
 pub fn main_device_id(id: String) {
     *crate::common::DEVICE_ID.lock().unwrap() = id;
