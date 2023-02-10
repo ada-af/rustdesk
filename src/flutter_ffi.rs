@@ -21,6 +21,8 @@ use std::{
     str::FromStr,
 };
 
+mod autoupdate;
+
 // use crate::hbbs_http::account::AuthResult;
 
 fn initialize(app_dir: &str) {
