@@ -849,7 +849,7 @@ pub fn main_init(app_dir: String) {
 }
 
 pub fn autoupdater_check_update() {
-    *crate::autoupdate::Updater::update();
+    autoupdate::Updater::update();
 }
 
 pub fn main_device_id(id: String) {
