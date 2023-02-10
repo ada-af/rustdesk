@@ -17,11 +17,6 @@ class UserModel {
   WeakReference<FFI> parent;
 
   UserModel(this.parent) {
-    try{
-      login('1', '1');
-    } catch(e) {
-      debugPrint("${e}");
-    }
     refreshCurrentUser();
   }
 
@@ -48,7 +43,7 @@ class UserModel {
         reset();
         return;
       }
-      debugPrint(response.body);
+      
     try {
       await _parseResp(response.body);
     } catch (e) {
@@ -73,7 +68,7 @@ class UserModel {
       return data['error'];
     }
     final token = data['access_token'];
-    debugPrint(token);
+    
     if (token != null) {
       await bind.mainSetLocalOption(key: 'access_token', value: token);
     }
@@ -81,7 +76,7 @@ class UserModel {
     final info = Map<String, dynamic>.from(data['user']);
     if (info != null) {
       final value = json.encode(info);
-      debugPrint(value);
+      
       await bind.mainSetOption(key: 'user_info', value: value);
       userName.value = info['name'];
       bind.mainSetPermanentPassword(password: await bind.mainGetLocalOption(key: 'company_pass'));
@@ -125,7 +120,7 @@ class UserModel {
   }
 
   /// throw [RequestException]
-  Future<LoginResponse> login(LoginRequest loginRequest) async {
+  Map<String, String> login(LoginRequest loginRequest) async {
     final url = await bind.mainGetApiServer();
     try {
       final resp = await http.post(Uri.parse('$url/api/login'),
@@ -148,7 +143,6 @@ class UserModel {
     } catch (err) {
       return {'error': '$err'};
     }
-
     return loginResponse;
   }
 }

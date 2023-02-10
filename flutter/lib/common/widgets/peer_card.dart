@@ -626,16 +626,16 @@ abstract class BasePeerCard extends StatelessWidget {
         isInProgress.value = true;
         String name = controller.text.trim();
         await bind.mainSetPeerAlias(id: id, alias: name);
-        if (isAddressBook) {
+        // if (isAddressBook) {
           gFFI.abModel.setPeerAlias(id, name);
           await gFFI.abModel.pushPeerAlias(id, name.toString());
-        }
-        if (isAddressBook) {
+        // }
+        // if (isAddressBook) {
           gFFI.abModel.pullAb();
-        } else {
-          bind.mainLoadRecentPeers();
-          bind.mainLoadFavPeers();
-        }
+        // } else {
+          // bind.mainLoadRecentPeers();
+          // bind.mainLoadFavPeers();
+        // }
         close();
         isInProgress.value = false;
       }
