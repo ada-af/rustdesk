@@ -127,8 +127,8 @@ class _PortForwardPageState extends State<PortForwardPage>
   }
 
   buildTunnel(BuildContext context) {
-    text(String lable) => Expanded(
-        child: Text(translate(lable)).marginOnly(left: _kTextLeftMargin));
+    text(String label) => Expanded(
+        child: Text(translate(label)).marginOnly(left: _kTextLeftMargin));
 
     return Theme(
       data: Theme.of(context)
@@ -179,36 +179,33 @@ class _PortForwardPageState extends State<PortForwardPage>
         buildTunnelInputCell(context,
             controller: remotePortController,
             inputFormatters: portInputFormatter),
-        SizedBox(
-          width: _kColumn4Width,
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                elevation: 0, side: const BorderSide(color: MyTheme.border)),
-            onPressed: () async {
-              int? localPort = int.tryParse(localPortController.text);
-              int? remotePort = int.tryParse(remotePortController.text);
-              if (localPort != null &&
-                  remotePort != null &&
-                  (remoteHostController.text.isEmpty ||
-                      remoteHostController.text.trim().isNotEmpty)) {
-                await bind.sessionAddPortForward(
-                    id: 'pf_${widget.id}',
-                    localPort: localPort,
-                    remoteHost: remoteHostController.text.trim().isEmpty
-                        ? 'localhost'
-                        : remoteHostController.text.trim(),
-                    remotePort: remotePort);
-                localPortController.clear();
-                remoteHostController.clear();
-                remotePortController.clear();
-                refreshTunnelConfig();
-              }
-            },
-            child: Text(
-              translate('Add'),
-            ),
-          ).marginAll(10),
-        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+              elevation: 0, side: const BorderSide(color: MyTheme.border)),
+          onPressed: () async {
+            int? localPort = int.tryParse(localPortController.text);
+            int? remotePort = int.tryParse(remotePortController.text);
+            if (localPort != null &&
+                remotePort != null &&
+                (remoteHostController.text.isEmpty ||
+                    remoteHostController.text.trim().isNotEmpty)) {
+              await bind.sessionAddPortForward(
+                  id: 'pf_${widget.id}',
+                  localPort: localPort,
+                  remoteHost: remoteHostController.text.trim().isEmpty
+                      ? 'localhost'
+                      : remoteHostController.text.trim(),
+                  remotePort: remotePort);
+              localPortController.clear();
+              remoteHostController.clear();
+              remotePortController.clear();
+              refreshTunnelConfig();
+            }
+          },
+          child: Text(
+            translate('Add'),
+          ),
+        ).marginAll(10),
       ]),
     );
   }
@@ -241,8 +238,8 @@ class _PortForwardPageState extends State<PortForwardPage>
   }
 
   Widget buildTunnelDataRow(BuildContext context, _PortForward pf, int index) {
-    text(String lable) => Expanded(
-        child: Text(lable, style: const TextStyle(fontSize: 20))
+    text(String label) => Expanded(
+        child: Text(label, style: const TextStyle(fontSize: 20))
             .marginOnly(left: _kTextLeftMargin));
 
     return Container(
@@ -285,11 +282,11 @@ class _PortForwardPageState extends State<PortForwardPage>
   }
 
   buildRdp(BuildContext context) {
-    text1(String lable) => Expanded(
-        child: Text(translate(lable)).marginOnly(left: _kTextLeftMargin));
-    text2(String lable) => Expanded(
+    text1(String label) => Expanded(
+        child: Text(translate(label)).marginOnly(left: _kTextLeftMargin));
+    text2(String label) => Expanded(
             child: Text(
-          lable,
+          label,
           style: const TextStyle(fontSize: 20),
         ).marginOnly(left: _kTextLeftMargin));
     return Theme(

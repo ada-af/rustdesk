@@ -1,6 +1,6 @@
 use super::*;
 use hbb_common::{allow_err, platform::linux::DISTRO};
-use scrap::{set_map_err, Capturer, Display, Frame, TraitCapturer};
+use scrap::{is_cursor_embedded, set_map_err, Capturer, Display, Frame, TraitCapturer};
 use std::io;
 
 use super::video_service::{
@@ -12,7 +12,7 @@ lazy_static::lazy_static! {
     static ref LOG_SCRAP_COUNT: Mutex<u32> = Mutex::new(0);
 }
 
-pub fn set_wayland_scrap_map_err() {
+pub fn init() {
     set_map_err(map_err_scrap);
 }
 
@@ -115,7 +115,7 @@ pub(super) fn is_inited() -> Option<Message> {
     }
 }
 
-async fn check_init() -> ResultType<()> {
+pub(super) async fn check_init() -> ResultType<()> {
     if !scrap::is_x11() {
         let mut minx = 0;
         let mut maxx = 0;
@@ -127,7 +127,10 @@ async fn check_init() -> ResultType<()> {
             if *lock == 0 {
                 let all = Display::all()?;
                 let num = all.len();
-                let (primary, displays) = super::video_service::get_displays_2(&all);
+                let (primary, mut displays) = super::video_service::get_displays_2(&all);
+                for display in displays.iter_mut() {
+                    display.cursor_embedded = is_cursor_embedded();
+                }
 
                 let mut rects: Vec<((i32, i32), usize, usize)> = Vec::new();
                 for d in &all {
@@ -171,14 +174,13 @@ async fn check_init() -> ResultType<()> {
 
         if minx != maxx && miny != maxy {
             log::info!(
-                "send uinput resolution: ({}, {}), ({}, {})",
+                "update mouse resolution: ({}, {}), ({}, {})",
                 minx,
                 maxx,
                 miny,
                 maxy
             );
-            allow_err!(input_service::set_uinput_resolution(minx, maxx, miny, maxy).await);
-            allow_err!(input_service::set_uinput().await);
+            allow_err!(input_service::update_mouse_resolution(minx, maxx, miny, maxy).await);
         }
     }
     Ok(())
@@ -241,7 +243,8 @@ pub(super) fn get_display_num() -> ResultType<usize> {
     }
 }
 
-pub(super) fn release_resouce() {
+#[allow(dead_code)]
+pub(super) fn release_resource() {
     if scrap::is_x11() {
         return;
     }
@@ -273,7 +276,7 @@ pub(super) fn get_capturer() -> ResultType<super::video_service::CapturerInfo> {
                 ndisplay: cap_display_info.num,
                 current: cap_display_info.current,
                 privacy_mode_id: 0,
-                _captuerer_privacy_mode_id: 0,
+                _capturer_privacy_mode_id: 0,
                 capturer: Box::new(cap_display_info.capturer.clone()),
             })
         }

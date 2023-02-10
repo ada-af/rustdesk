@@ -6,12 +6,12 @@ use std::{
 
 use sciter::{
     dom::{
-        event::{EventReason, BEHAVIOR_EVENTS, EVENT_GROUPS, PHASE_MASK},
-        Element, HELEMENT,
+        Element,
+        event::{BEHAVIOR_EVENTS, EVENT_GROUPS, EventReason, PHASE_MASK}, HELEMENT,
     },
     make_args,
-    video::{video_destination, AssetPtr, COLOR_SPACE},
     Value,
+    video::{AssetPtr, COLOR_SPACE, video_destination},
 };
 
 use hbb_common::{
@@ -79,8 +79,8 @@ impl InvokeUiSession for SciterHandler {
         }
     }
 
-    fn set_display(&self, x: i32, y: i32, w: i32, h: i32) {
-        self.call("setDisplay", &make_args!(x, y, w, h));
+    fn set_display(&self, x: i32, y: i32, w: i32, h: i32, cursor_embedded: bool) {
+        self.call("setDisplay", &make_args!(x, y, w, h, cursor_embedded));
         // https://sciter.com/forums/topic/color_spaceiyuv-crash
         // Nothing spectacular in decoder – done on CPU side.
         // So if you can do BGRA translation on your side – the better.
@@ -223,11 +223,23 @@ impl InvokeUiSession for SciterHandler {
             display.set_item("y", d.y);
             display.set_item("width", d.width);
             display.set_item("height", d.height);
+            display.set_item("cursor_embedded", d.cursor_embedded);
             displays.push(display);
         }
         pi_sciter.set_item("displays", displays);
         pi_sciter.set_item("current_display", pi.current_display);
         self.call("updatePi", &make_args!(pi_sciter));
+    }
+
+    fn on_connected(&self, conn_type: ConnType) {
+        match conn_type {
+            ConnType::RDP => {}
+            ConnType::PORT_FORWARD => {}
+            ConnType::FILE_TRANSFER => {}
+            ConnType::DEFAULT_CONN => {
+                crate::keyboard::client::start_grab_loop();
+            }
+        }
     }
 
     fn msgbox(&self, msgtype: &str, title: &str, text: &str, link: &str, retry: bool) {
@@ -251,6 +263,24 @@ impl InvokeUiSession for SciterHandler {
 
     fn update_block_input_state(&self, on: bool) {
         self.call("updateBlockInputState", &make_args!(on));
+    }
+
+    fn switch_back(&self, _id: &str) {}
+
+    fn on_voice_call_started(&self) {
+        self.call("onVoiceCallStart", &make_args!());
+    }
+
+    fn on_voice_call_closed(&self, reason: &str) {
+        self.call("onVoiceCallClosed", &make_args!(reason));
+    }
+
+    fn on_voice_call_waiting(&self) {
+        self.call("onVoiceCallWaiting", &make_args!());
+    }
+
+    fn on_voice_call_incoming(&self) {
+        self.call("onVoiceCallIncoming", &make_args!());
     }
 }
 
@@ -336,7 +366,7 @@ impl sciter::EventHandler for SciterSession {
     }
 
     sciter::dispatch_script_call! {
-        fn get_audit_server();
+        fn get_audit_server(String);
         fn send_note(String);
         fn is_xfce();
         fn get_id();
@@ -406,6 +436,8 @@ impl sciter::EventHandler for SciterSession {
         fn supported_hwcodec();
         fn change_prefer_codec();
         fn restart_remote_device();
+        fn request_voice_call();
+        fn close_voice_call();
     }
 }
 
@@ -428,9 +460,13 @@ impl SciterSession {
             ConnType::DEFAULT_CONN
         };
 
-        session.lc.write().unwrap().initialize(id, conn_type);
+        session.lc.write().unwrap().initialize(id, conn_type, None);
 
         Self(session)
+    }
+
+    pub fn inner(&self) -> Session<SciterHandler> {
+        self.0.clone()
     }
 
     fn get_custom_image_quality(&mut self) -> Value {

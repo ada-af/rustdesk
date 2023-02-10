@@ -20,7 +20,7 @@
 
 use super::{video_qos::VideoQoS, *};
 #[cfg(windows)]
-use crate::portable_service::client::PORTABLE_SERVICE_RUNNING;
+use hbb_common::get_version_number;
 use hbb_common::tokio::sync::{
     mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
     Mutex as TokioMutex,
@@ -74,7 +74,11 @@ fn is_capturer_mag_supported() -> bool {
     false
 }
 
-pub fn notify_video_frame_feched(conn_id: i32, frame_tm: Option<Instant>) {
+pub fn capture_cursor_embedded() -> bool {
+    scrap::is_cursor_embedded()
+}
+
+pub fn notify_video_frame_fetched(conn_id: i32, frame_tm: Option<Instant>) {
     FRAME_FETCHED_NOTIFIER.0.send((conn_id, frame_tm)).unwrap()
 }
 
@@ -88,7 +92,8 @@ pub fn get_privacy_mode_conn_id() -> i32 {
 
 pub fn is_privacy_mode_supported() -> bool {
     #[cfg(windows)]
-    return *IS_CAPTURER_MAGNIFIER_SUPPORTED;
+    return *IS_CAPTURER_MAGNIFIER_SUPPORTED
+        && get_version_number(&crate::VERSION) > get_version_number("1.1.9");
     #[cfg(not(windows))]
     return false;
 }
@@ -137,7 +142,7 @@ impl VideoFrameController {
                 fetched_conn_ids.insert(id);
             }
             Ok(None) => {
-                // this branch would nerver be reached
+                // this branch would never be reached
             }
         }
     }
@@ -153,7 +158,7 @@ fn check_display_changed(
     last_n: usize,
     last_current: usize,
     last_width: usize,
-    last_hegiht: usize,
+    last_height: usize,
 ) -> bool {
     #[cfg(target_os = "linux")]
     {
@@ -178,7 +183,7 @@ fn check_display_changed(
             if i != last_current {
                 return true;
             };
-            if d.width() != last_width || d.height() != last_hegiht {
+            if d.width() != last_width || d.height() != last_height {
                 return true;
             };
         }
@@ -192,7 +197,7 @@ fn create_capturer(
     privacy_mode_id: i32,
     display: Display,
     use_yuv: bool,
-    current: usize,
+    _current: usize,
     _portable_service_running: bool,
 ) -> ResultType<Box<dyn TraitCapturer>> {
     #[cfg(not(windows))]
@@ -240,7 +245,7 @@ fn create_capturer(
                             PRIVACY_WINDOW_NAME
                         );
                     }
-                    log::debug!("Create maginifier capture for {}", privacy_mode_id);
+                    log::debug!("Create magnifier capture for {}", privacy_mode_id);
                     c = Some(Box::new(c1));
                 }
                 Err(e) => {
@@ -256,7 +261,7 @@ fn create_capturer(
             log::debug!("Create capturer dxgi|gdi");
             #[cfg(windows)]
             return crate::portable_service::client::create_capturer(
-                current,
+                _current,
                 display,
                 use_yuv,
                 _portable_service_running,
@@ -300,9 +305,9 @@ pub fn test_create_capturer(privacy_mode_id: i32, timeout_millis: u64) -> bool {
 }
 
 #[cfg(windows)]
-fn check_uac_switch(privacy_mode_id: i32, captuerer_privacy_mode_id: i32) -> ResultType<()> {
-    if captuerer_privacy_mode_id != 0 {
-        if privacy_mode_id != captuerer_privacy_mode_id {
+fn check_uac_switch(privacy_mode_id: i32, capturer_privacy_mode_id: i32) -> ResultType<()> {
+    if capturer_privacy_mode_id != 0 {
+        if privacy_mode_id != capturer_privacy_mode_id {
             if !crate::ui::win_privacy::is_process_consent_running()? {
                 bail!("consent.exe is running");
             }
@@ -321,7 +326,7 @@ pub(super) struct CapturerInfo {
     pub ndisplay: usize,
     pub current: usize,
     pub privacy_mode_id: i32,
-    pub _captuerer_privacy_mode_id: i32,
+    pub _capturer_privacy_mode_id: i32,
     pub capturer: Box<dyn TraitCapturer>,
 }
 
@@ -362,27 +367,29 @@ fn get_capturer(use_yuv: bool, portable_service_running: bool) -> ResultType<Cap
 
     let privacy_mode_id = *PRIVACY_MODE_CONN_ID.lock().unwrap();
     #[cfg(not(windows))]
-    let captuerer_privacy_mode_id = privacy_mode_id;
+    let capturer_privacy_mode_id = privacy_mode_id;
     #[cfg(windows)]
-    let mut captuerer_privacy_mode_id = privacy_mode_id;
+    let mut capturer_privacy_mode_id = privacy_mode_id;
     #[cfg(windows)]
-    if captuerer_privacy_mode_id != 0 {
+    if capturer_privacy_mode_id != 0 {
         if crate::ui::win_privacy::is_process_consent_running()? {
-            captuerer_privacy_mode_id = 0;
+            capturer_privacy_mode_id = 0;
         }
     }
     log::debug!(
-        "Try create capturer with captuerer privacy mode id {}",
-        captuerer_privacy_mode_id,
+        "Try create capturer with capturer privacy mode id {}",
+        capturer_privacy_mode_id,
     );
 
-    if privacy_mode_id != captuerer_privacy_mode_id {
-        log::info!("In privacy mode, but show UAC prompt window for now");
-    } else {
-        log::info!("In privacy mode, the peer side cannot watch the screen");
+    if privacy_mode_id != 0 {
+        if privacy_mode_id != capturer_privacy_mode_id {
+            log::info!("In privacy mode, but show UAC prompt window for now");
+        } else {
+            log::info!("In privacy mode, the peer side cannot watch the screen");
+        }
     }
     let capturer = create_capturer(
-        captuerer_privacy_mode_id,
+        capturer_privacy_mode_id,
         display,
         use_yuv,
         current,
@@ -395,7 +402,7 @@ fn get_capturer(use_yuv: bool, portable_service_running: bool) -> ResultType<Cap
         ndisplay,
         current,
         privacy_mode_id,
-        _captuerer_privacy_mode_id: captuerer_privacy_mode_id,
+        _capturer_privacy_mode_id: capturer_privacy_mode_id,
         capturer,
     })
 }
@@ -404,11 +411,11 @@ fn run(sp: GenericService) -> ResultType<()> {
     #[cfg(windows)]
     ensure_close_virtual_device()?;
 
-    // ensure_inited() is needed because release_resouce() may be called.
+    // ensure_inited() is needed because release_resource() may be called.
     #[cfg(target_os = "linux")]
     super::wayland::ensure_inited()?;
     #[cfg(windows)]
-    let last_portable_service_running = PORTABLE_SERVICE_RUNNING.lock().unwrap().clone();
+    let last_portable_service_running = crate::portable_service::client::running();
     #[cfg(not(windows))]
     let last_portable_service_running = false;
 
@@ -455,6 +462,7 @@ fn run(sp: GenericService) -> ResultType<()> {
             y: c.origin.1 as _,
             width: c.width as _,
             height: c.height as _,
+            cursor_embedded: capture_cursor_embedded(),
             ..Default::default()
         });
         let mut msg_out = Message::new();
@@ -472,22 +480,7 @@ fn run(sp: GenericService) -> ResultType<()> {
     #[cfg(windows)]
     log::info!("gdi: {}", c.is_gdi());
     let codec_name = Encoder::current_hw_encoder_name();
-    #[cfg(not(target_os = "ios"))]
-    let recorder = if !Config::get_option("allow-auto-record-incoming").is_empty() {
-        Recorder::new(RecorderContext {
-            id: "local".to_owned(),
-            default_dir: crate::ui_interface::default_video_save_directory(),
-            filename: "".to_owned(),
-            width: c.width,
-            height: c.height,
-            codec_id: scrap::record::RecordCodecID::VP9,
-        })
-        .map_or(Default::default(), |r| Arc::new(Mutex::new(Some(r))))
-    } else {
-        Default::default()
-    };
-    #[cfg(target_os = "ios")]
-    let recorder: Arc<Mutex<Option<Recorder>>> = Default::default();
+    let recorder = get_recorder(c.width, c.height, &codec_name);
     #[cfg(windows)]
     start_uac_elevation_check();
 
@@ -496,7 +489,7 @@ fn run(sp: GenericService) -> ResultType<()> {
 
     while sp.ok() {
         #[cfg(windows)]
-        check_uac_switch(c.privacy_mode_id, c._captuerer_privacy_mode_id)?;
+        check_uac_switch(c.privacy_mode_id, c._capturer_privacy_mode_id)?;
 
         let mut video_qos = VIDEO_QOS.lock().unwrap();
         if video_qos.check_if_updated() {
@@ -505,7 +498,7 @@ fn run(sp: GenericService) -> ResultType<()> {
                 video_qos.target_bitrate,
                 video_qos.fps
             );
-            encoder.set_bitrate(video_qos.target_bitrate).unwrap();
+            allow_err!(encoder.set_bitrate(video_qos.target_bitrate));
             spf = video_qos.spf();
         }
         drop(video_qos);
@@ -521,14 +514,14 @@ fn run(sp: GenericService) -> ResultType<()> {
             bail!("SWITCH");
         }
         #[cfg(windows)]
-        if last_portable_service_running != PORTABLE_SERVICE_RUNNING.lock().unwrap().clone() {
+        if last_portable_service_running != crate::portable_service::client::running() {
             bail!("SWITCH");
         }
         check_privacy_mode_changed(&sp, c.privacy_mode_id)?;
         #[cfg(windows)]
         {
             if crate::platform::windows::desktop_changed()
-                && !PORTABLE_SERVICE_RUNNING.lock().unwrap().clone()
+                && !crate::portable_service::client::running()
             {
                 bail!("Desktop changed");
             }
@@ -599,16 +592,13 @@ fn run(sp: GenericService) -> ResultType<()> {
                     }
                     try_gdi += 1;
                 }
-
                 #[cfg(target_os = "linux")]
                 {
                     would_block_count += 1;
                     if !scrap::is_x11() {
                         if would_block_count >= 100 {
-                            // For now, the user should choose and agree screen sharing agiain.
-                            // to-do: Remember choice, attendless...
-                            super::wayland::release_resouce();
-                            bail!("Wayland capturer none 100 times, try restart captuere");
+                            super::wayland::release_resource();
+                            bail!("Wayland capturer none 100 times, try restart capture");
                         }
                     }
                 }
@@ -643,7 +633,7 @@ fn run(sp: GenericService) -> ResultType<()> {
         while wait_begin.elapsed().as_millis() < timeout_millis as _ {
             check_privacy_mode_changed(&sp, c.privacy_mode_id)?;
             #[cfg(windows)]
-            check_uac_switch(c.privacy_mode_id, c._captuerer_privacy_mode_id)?;
+            check_uac_switch(c.privacy_mode_id, c._capturer_privacy_mode_id)?;
             frame_controller.try_wait_next(&mut fetched_conn_ids, 300);
             // break if all connections have received current frame
             if fetched_conn_ids.len() >= frame_controller.send_conn_ids.len() {
@@ -658,7 +648,60 @@ fn run(sp: GenericService) -> ResultType<()> {
             std::thread::sleep(spf - elapsed);
         }
     }
+
+    #[cfg(target_os = "linux")]
+    if !scrap::is_x11() {
+        super::wayland::release_resource();
+    }
+
     Ok(())
+}
+
+fn get_recorder(
+    width: usize,
+    height: usize,
+    codec_name: &Option<String>,
+) -> Arc<Mutex<Option<Recorder>>> {
+    #[cfg(not(target_os = "ios"))]
+    let recorder = if !Config::get_option("allow-auto-record-incoming").is_empty() {
+        use crate::hbbs_http::record_upload;
+        use scrap::record::RecordCodecID::*;
+
+        let tx = if record_upload::is_enable() {
+            let (tx, rx) = std::sync::mpsc::channel();
+            record_upload::run(rx);
+            Some(tx)
+        } else {
+            None
+        };
+        let codec_id = match codec_name {
+            Some(name) => {
+                if name.contains("264") {
+                    H264
+                } else {
+                    H265
+                }
+            }
+            None => VP9,
+        };
+        Recorder::new(RecorderContext {
+            server: true,
+            id: Config::get_id(),
+            default_dir: crate::ui_interface::default_video_save_directory(),
+            filename: "".to_owned(),
+            width,
+            height,
+            codec_id,
+            tx,
+        })
+        .map_or(Default::default(), |r| Arc::new(Mutex::new(Some(r))))
+    } else {
+        Default::default()
+    };
+    #[cfg(target_os = "ios")]
+    let recorder: Arc<Mutex<Option<Recorder>>> = Default::default();
+
+    recorder
 }
 
 fn check_privacy_mode_changed(sp: &GenericService, privacy_mode_id: i32) -> ResultType<()> {
@@ -776,6 +819,7 @@ pub(super) fn get_displays_2(all: &Vec<Display>) -> (usize, Vec<DisplayInfo>) {
             height: d.height() as _,
             name: d.name(),
             online: d.is_online(),
+            cursor_embedded: false,
             ..Default::default()
         });
     }
@@ -910,17 +954,16 @@ pub fn get_current_display() -> ResultType<(usize, usize, Display)> {
 fn start_uac_elevation_check() {
     static START: Once = Once::new();
     START.call_once(|| {
-        if !crate::platform::is_installed()
-            && !crate::platform::is_root()
-            && !crate::platform::is_elevated(None).map_or(false, |b| b)
-        {
+        if !crate::platform::is_installed() && !crate::platform::is_root() {
             std::thread::spawn(|| loop {
                 std::thread::sleep(std::time::Duration::from_secs(1));
                 if let Ok(uac) = crate::ui::win_privacy::is_process_consent_running() {
                     *IS_UAC_RUNNING.lock().unwrap() = uac;
                 }
-                if let Ok(elevated) = crate::platform::is_foreground_window_elevated() {
-                    *IS_FOREGROUND_WINDOW_ELEVATED.lock().unwrap() = elevated;
+                if !crate::platform::is_elevated(None).unwrap_or(false) {
+                    if let Ok(elevated) = crate::platform::is_foreground_window_elevated() {
+                        *IS_FOREGROUND_WINDOW_ELEVATED.lock().unwrap() = elevated;
+                    }
                 }
             });
         }

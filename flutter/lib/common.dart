@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' hide Size;
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:back_button_interceptor/back_button_interceptor.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
+import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,22 +16,23 @@ import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
 import 'package:flutter_hbb/main.dart';
 import 'package:flutter_hbb/models/peer_model.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
+import 'package:flutter_hbb/utils/platform_channel.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:uni_links/uni_links.dart';
 import 'package:uni_links_desktop/uni_links_desktop.dart';
-import 'package:window_manager/window_manager.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:window_size/window_size.dart' as window_size;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:win32/win32.dart' as win32;
+import 'package:window_manager/window_manager.dart';
+import 'package:window_size/window_size.dart' as window_size;
 
+import '../consts.dart';
 import 'common/widgets/overlay.dart';
 import 'mobile/pages/file_manager_page.dart';
 import 'mobile/pages/remote_page.dart';
 import 'models/input_model.dart';
 import 'models/model.dart';
 import 'models/platform_model.dart';
-
-import '../consts.dart';
 
 final globalKey = GlobalKey<NavigatorState>();
 final navigationBarKey = GlobalKey();
@@ -41,6 +44,9 @@ var isWeb = false;
 var isWebDesktop = false;
 var version = "";
 int androidVersion = 0;
+
+/// only available for Windows target
+int windowsBuildNumber = 0;
 DesktopType? desktopType;
 
 /// * debug or test only, DO NOT enable in release build
@@ -92,22 +98,28 @@ class IconFont {
 class ColorThemeExtension extends ThemeExtension<ColorThemeExtension> {
   const ColorThemeExtension({
     required this.border,
+    required this.highlight,
   });
 
   final Color? border;
+  final Color? highlight;
 
   static const light = ColorThemeExtension(
     border: Color(0xFFCCCCCC),
+    highlight: Color(0xFFE5E5E5),
   );
 
   static const dark = ColorThemeExtension(
     border: Color(0xFF555555),
+    highlight: Color(0xFF3F3F3F),
   );
 
   @override
-  ThemeExtension<ColorThemeExtension> copyWith({Color? border}) {
+  ThemeExtension<ColorThemeExtension> copyWith(
+      {Color? border, Color? highlight}) {
     return ColorThemeExtension(
       border: border ?? this.border,
+      highlight: highlight ?? this.highlight,
     );
   }
 
@@ -119,6 +131,7 @@ class ColorThemeExtension extends ThemeExtension<ColorThemeExtension> {
     }
     return ColorThemeExtension(
       border: Color.lerp(border, other.border, t),
+      highlight: Color.lerp(highlight, other.highlight, t),
     );
   }
 }
@@ -191,6 +204,9 @@ class MyTheme {
     splashColor: Colors.transparent,
     highlightColor: Colors.transparent,
     splashFactory: isDesktop ? NoSplash.splashFactory : null,
+    outlinedButtonTheme: OutlinedButtonThemeData(
+        style:
+            OutlinedButton.styleFrom(side: BorderSide(color: Colors.white38))),
     textButtonTheme: isDesktop
         ? TextButtonThemeData(
             style: ButtonStyle(splashFactory: NoSplash.splashFactory),
@@ -207,19 +223,18 @@ class MyTheme {
     return themeModeFromString(bind.mainGetLocalOption(key: kCommConfKeyTheme));
   }
 
-  static void changeDarkMode(ThemeMode mode) {
-    final preference = getThemeModePreference();
-    if (preference != mode) {
+  static void changeDarkMode(ThemeMode mode) async {
+    Get.changeThemeMode(mode);
+    if (desktopType == DesktopType.main) {
       if (mode == ThemeMode.system) {
-        bind.mainSetLocalOption(key: kCommConfKeyTheme, value: '');
+        await bind.mainSetLocalOption(key: kCommConfKeyTheme, value: '');
       } else {
-        bind.mainSetLocalOption(
+        await bind.mainSetLocalOption(
             key: kCommConfKeyTheme, value: mode.toShortString());
       }
-      Get.changeThemeMode(mode);
-      if (desktopType == DesktopType.main) {
-        bind.mainChangeTheme(dark: currentThemeMode().toShortString());
-      }
+      await bind.mainChangeTheme(dark: mode.toShortString());
+      // Synchronize the window theme of the system.
+      updateSystemWindowTheme();
     }
   }
 
@@ -321,7 +336,7 @@ void window_on_top(int? id) {
     windowManager.restore();
     windowManager.show();
     windowManager.focus();
-    rustDeskWinManager.registerActiveWindow(0);
+    rustDeskWinManager.registerActiveWindow(kWindowMainId);
   } else {
     WindowController.fromWindowId(id)
       ..focus()
@@ -352,20 +367,25 @@ class Dialog<T> {
   }
 }
 
+class OverlayKeyState {
+  final _overlayKey = GlobalKey<OverlayState>();
+
+  /// use global overlay by default
+  OverlayState? get state =>
+      _overlayKey.currentState ?? globalKey.currentState?.overlay;
+
+  GlobalKey<OverlayState>? get key => _overlayKey;
+}
+
 class OverlayDialogManager {
-  OverlayState? _overlayState;
   final Map<String, Dialog> _dialogs = {};
+  var _overlayKeyState = OverlayKeyState();
   int _tagCount = 0;
 
   OverlayEntry? _mobileActionsOverlayEntry;
 
-  /// By default OverlayDialogManager use global overlay
-  OverlayDialogManager() {
-    _overlayState = globalKey.currentState?.overlay;
-  }
-
-  void setOverlayState(OverlayState? overlayState) {
-    _overlayState = overlayState;
+  void setOverlayState(OverlayKeyState overlayKeyState) {
+    _overlayKeyState = overlayKeyState;
   }
 
   void dismissAll() {
@@ -389,7 +409,7 @@ class OverlayDialogManager {
       bool useAnimation = true,
       bool forceGlobal = false}) {
     final overlayState =
-        forceGlobal ? globalKey.currentState?.overlay : _overlayState;
+        forceGlobal ? globalKey.currentState?.overlay : _overlayKeyState.state;
 
     if (overlayState == null) {
       return Future.error(
@@ -493,7 +513,8 @@ class OverlayDialogManager {
 
   void showMobileActionsOverlay({FFI? ffi}) {
     if (_mobileActionsOverlayEntry != null) return;
-    if (_overlayState == null) return;
+    final overlayState = _overlayKeyState.state;
+    if (overlayState == null) return;
 
     // compute overlay position
     final screenW = MediaQuery.of(globalKey.currentContext!).size.width;
@@ -519,7 +540,7 @@ class OverlayDialogManager {
         onHidePressed: () => hideMobileActionsOverlay(),
       );
     });
-    _overlayState!.insert(overlay);
+    overlayState.insert(overlay);
     _mobileActionsOverlayEntry = overlay;
   }
 
@@ -537,6 +558,10 @@ class OverlayDialogManager {
     } else {
       hideMobileActionsOverlay();
     }
+  }
+
+  bool existing(String tag) {
+    return _dialogs.keys.contains(tag);
   }
 }
 
@@ -593,13 +618,14 @@ class CustomAlertDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    FocusNode focusNode = FocusNode();
-    // request focus if there is no focused FocusNode in the dialog
+    // request focus
+    FocusScopeNode scopeNode = FocusScopeNode();
     Future.delayed(Duration.zero, () {
-      if (!focusNode.hasFocus) focusNode.requestFocus();
+      if (!scopeNode.hasFocus) scopeNode.requestFocus();
     });
-    return Focus(
-      focusNode: focusNode,
+    const double padding = 16;
+    return FocusScope(
+      node: scopeNode,
       autofocus: true,
       onKey: (node, key) {
         if (key.logicalKey == LogicalKeyboardKey.escape) {
@@ -611,17 +637,29 @@ class CustomAlertDialog extends StatelessWidget {
             key.logicalKey == LogicalKeyboardKey.enter) {
           if (key is RawKeyDownEvent) onSubmit?.call();
           return KeyEventResult.handled;
+        } else if (key.logicalKey == LogicalKeyboardKey.tab) {
+          if (key is RawKeyDownEvent) {
+            scopeNode.nextFocus();
+          }
+          return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
       },
       child: AlertDialog(
         scrollable: true,
         title: title,
-        contentPadding: EdgeInsets.symmetric(
-            horizontal: contentPadding ?? 25, vertical: 10),
-        content:
-            ConstrainedBox(constraints: contentBoxConstraints, child: content),
+        contentPadding: EdgeInsets.fromLTRB(
+            contentPadding ?? padding, 25, contentPadding ?? padding, 10),
+        content: ConstrainedBox(
+          constraints: contentBoxConstraints,
+          child: Theme(
+              data: Theme.of(context).copyWith(
+                  inputDecorationTheme: InputDecorationTheme(
+                      isDense: true, contentPadding: EdgeInsets.all(15))),
+              child: content),
+        ),
         actions: actions,
+        actionsPadding: EdgeInsets.fromLTRB(0, 0, padding, padding),
       ),
     );
   }
@@ -653,30 +691,29 @@ void msgBox(String id, String type, String title, String text, String link,
 
   if (type != "connecting" && type != "success" && !type.contains("nook")) {
     hasOk = true;
-    buttons.insert(0, msgBoxButton(translate('OK'), submit));
+    buttons.insert(0, dialogButton('OK', onPressed: submit));
   }
   hasCancel ??= !type.contains("error") &&
       !type.contains("nocancel") &&
       type != "restarting";
   if (hasCancel) {
-    buttons.insert(0, msgBoxButton(translate('Cancel'), cancel));
+    buttons.insert(
+        0, dialogButton('Cancel', onPressed: cancel, isOutline: true));
   }
-  // TODO: test this button
   if (type.contains("hasclose")) {
     buttons.insert(
         0,
-        msgBoxButton(translate('Close'), () {
+        dialogButton('Close', onPressed: () {
           dialogManager.dismissAll();
         }));
   }
   if (link.isNotEmpty) {
-    buttons.insert(0, msgBoxButton(translate('JumpLink'), jumplink));
+    buttons.insert(0, dialogButton('JumpLink', onPressed: jumplink));
   }
   dialogManager.show(
     (setState, close) => CustomAlertDialog(
-      title: _msgBoxTitle(title),
-      content:
-          SelectableText(translate(text), style: const TextStyle(fontSize: 15)),
+      title: null,
+      content: SelectionArea(child: msgboxContent(type, title, text)),
       actions: buttons,
       onSubmit: hasOk ? submit : null,
       onCancel: hasCancel == true ? cancel : null,
@@ -685,30 +722,74 @@ void msgBox(String id, String type, String title, String text, String link,
   );
 }
 
-Widget msgBoxButton(String text, void Function() onPressed) {
-  return ButtonTheme(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      //limits the touch area to the button area
-      minWidth: 0,
-      //wraps child's width
-      height: 0,
-      child: TextButton(
-          style: flatButtonStyle,
-          onPressed: onPressed,
-          child:
-              Text(translate(text), style: TextStyle(color: MyTheme.accent))));
+Color? _msgboxColor(String type) {
+  if (type == "input-password" || type == "custom-os-password") {
+    return Color(0xFFAD448E);
+  }
+  if (type.contains("success")) {
+    return Color(0xFF32bea6);
+  }
+  if (type.contains("error") || type == "re-input-password") {
+    return Color(0xFFE04F5F);
+  }
+  return Color(0xFF2C8CFF);
 }
 
-Widget _msgBoxTitle(String title) =>
-    Text(translate(title), style: TextStyle(fontSize: 21));
+Widget msgboxIcon(String type) {
+  IconData? iconData;
+  if (type.contains("error") || type == "re-input-password") {
+    iconData = Icons.cancel;
+  }
+  if (type.contains("success")) {
+    iconData = Icons.check_circle;
+  }
+  if (type == "wait-uac" || type == "wait-remote-accept-nook") {
+    iconData = Icons.hourglass_top;
+  }
+  if (type == 'on-uac' || type == 'on-foreground-elevated') {
+    iconData = Icons.admin_panel_settings;
+  }
+  if (type == "info") {
+    iconData = Icons.info;
+  }
+  if (iconData != null) {
+    return Icon(iconData, size: 50, color: _msgboxColor(type))
+        .marginOnly(right: 16);
+  }
+
+  return Offstage();
+}
+
+// title should be null
+Widget msgboxContent(String type, String title, String text) {
+  return Row(
+    children: [
+      msgboxIcon(type),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              translate(title),
+              style: TextStyle(fontSize: 21),
+            ).marginOnly(bottom: 10),
+            Text(translate(text), style: const TextStyle(fontSize: 15)),
+          ],
+        ),
+      ),
+    ],
+  ).marginOnly(bottom: 12);
+}
 
 void msgBoxCommon(OverlayDialogManager dialogManager, String title,
     Widget content, List<Widget> buttons,
     {bool hasCancel = true}) {
   dialogManager.dismissAll();
   dialogManager.show((setState, close) => CustomAlertDialog(
-        title: _msgBoxTitle(title),
+        title: Text(
+          translate(title),
+          style: TextStyle(fontSize: 21),
+        ),
         content: content,
         actions: buttons,
         onCancel: hasCancel ? close : null,
@@ -919,7 +1000,8 @@ bool option2bool(String option, String value) {
   } else if (option.startsWith("allow-") ||
       option == "stop-service" ||
       option == "direct-server" ||
-      option == "stop-rendezvous-service") {
+      option == "stop-rendezvous-service" ||
+      option == "force-always-relay") {
     res = value == "Y";
   } else {
     assert(false);
@@ -935,7 +1017,8 @@ String bool2option(String option, bool b) {
   } else if (option.startsWith('allow-') ||
       option == "stop-service" ||
       option == "direct-server" ||
-      option == "stop-rendezvous-service") {
+      option == "stop-rendezvous-service" ||
+      option == "force-always-relay") {
     res = b ? 'Y' : '';
   } else {
     assert(false);
@@ -964,11 +1047,13 @@ Future<bool> matchPeer(String searchText, Peer peer) async {
 
 /// Get the image for the current [platform].
 Widget getPlatformImage(String platform, {double size = 50}) {
-  platform = platform.toLowerCase();
-  if (platform == 'mac os') {
+  if (platform == kPeerPlatformMacOS) {
     platform = 'mac';
-  } else if (platform != 'linux' && platform != 'android') {
+  } else if (platform != kPeerPlatformLinux &&
+      platform != kPeerPlatformAndroid) {
     platform = 'win';
+  } else {
+    platform = platform.toLowerCase();
   }
   return SvgPicture.asset('assets/$platform.svg', height: size, width: size);
 }
@@ -1007,7 +1092,7 @@ class LastWindowPosition {
       return LastWindowPosition(m["width"], m["height"], m["offsetWidth"],
           m["offsetHeight"], m["isMaximized"]);
     } catch (e) {
-      debugPrint(e.toString());
+      debugPrintStack(label: e.toString());
       return null;
     }
   }
@@ -1141,7 +1226,7 @@ Future<bool> restoreWindowPosition(WindowType type, {int? windowId}) async {
   final pos = bind.getLocalFlutterConfig(k: kWindowPrefix + type.name);
   var lpos = LastWindowPosition.loadFromString(pos);
   if (lpos == null) {
-    debugPrint("window position saved, but cannot be parsed");
+    debugPrint("no window position saved, ignoring position restoration");
     return false;
   }
 
@@ -1191,10 +1276,12 @@ Future<bool> restoreWindowPosition(WindowType type, {int? windowId}) async {
 /// [Availability]
 /// initUniLinks should only be used on macos/windows.
 /// we use dbus for linux currently.
-Future<void> initUniLinks() async {
-  if (!Platform.isWindows && !Platform.isMacOS) {
-    return;
+Future<bool> initUniLinks() async {
+  if (Platform.isLinux) {
+    return false;
   }
+  // Register uni links for Windows. The required info of url scheme is already
+  // declared in `Info.plist` for macOS.
   if (Platform.isWindows) {
     registerProtocol('rustdesk');
   }
@@ -1202,22 +1289,33 @@ Future<void> initUniLinks() async {
   try {
     final initialLink = await getInitialLink();
     if (initialLink == null) {
-      return;
+      return false;
     }
-    parseRustdeskUri(initialLink);
+    return parseRustdeskUri(initialLink);
   } catch (err) {
-    debugPrint("$err");
+    debugPrintStack(label: "$err");
+    return false;
   }
 }
 
-StreamSubscription? listenUniLinks() {
-  if (!(Platform.isWindows || Platform.isMacOS)) {
+/// Listen for uni links.
+///
+/// * handleByFlutter: Should uni links be handled by Flutter.
+///
+/// Returns a [StreamSubscription] which can listen the uni links.
+StreamSubscription? listenUniLinks({handleByFlutter = true}) {
+  if (Platform.isLinux) {
     return null;
   }
 
   final sub = uriLinkStream.listen((Uri? uri) {
+    debugPrint("A uri was received: $uri.");
     if (uri != null) {
-      callUniLinksUriHandler(uri);
+      if (handleByFlutter) {
+        callUniLinksUriHandler(uri);
+      } else {
+        bind.sendUrlScheme(url: uri.toString());
+      }
     } else {
       print("uni listen error: uri is empty.");
     }
@@ -1227,48 +1325,87 @@ StreamSubscription? listenUniLinks() {
   return sub;
 }
 
-void checkArguments() {
-  // check connect args
-  final connectIndex = bootArgs.indexOf("--connect");
-  if (connectIndex == -1) {
-    return;
-  }
-  String? arg =
-      bootArgs.length < connectIndex + 1 ? null : bootArgs[connectIndex + 1];
-  if (arg != null) {
-    if (arg.startsWith(kUniLinksPrefix)) {
-      parseRustdeskUri(arg);
-    } else {
-      // fallback to peer id
-      rustDeskWinManager.newRemoteDesktop(arg);
-      bootArgs.removeAt(connectIndex);
-      bootArgs.removeAt(connectIndex);
+/// Handle command line arguments
+///
+/// * Returns true if we successfully handle the startup arguments.
+bool checkArguments() {
+  if (kBootArgs.isNotEmpty) {
+    final ret = parseRustdeskUri(kBootArgs.first);
+    if (ret) {
+      return true;
     }
   }
+  // bootArgs:[--connect, 362587269, --switch_uuid, e3d531cc-5dce-41e0-bd06-5d4a2b1eec05]
+  // check connect args
+  var connectIndex = kBootArgs.indexOf("--connect");
+  if (connectIndex == -1) {
+    return false;
+  }
+  String? id =
+      kBootArgs.length < connectIndex + 1 ? null : kBootArgs[connectIndex + 1];
+  final switchUuidIndex = kBootArgs.indexOf("--switch_uuid");
+  String? switchUuid = kBootArgs.length < switchUuidIndex + 1
+      ? null
+      : kBootArgs[switchUuidIndex + 1];
+  if (id != null) {
+    if (id.startsWith(kUniLinksPrefix)) {
+      return parseRustdeskUri(id);
+    } else {
+      // remove "--connect xxx" in the `bootArgs` array
+      kBootArgs.removeAt(connectIndex);
+      kBootArgs.removeAt(connectIndex);
+      // fallback to peer id
+      Future.delayed(Duration.zero, () {
+        rustDeskWinManager.newRemoteDesktop(id, switch_uuid: switchUuid);
+      });
+      return true;
+    }
+  }
+  return false;
 }
 
 /// Parse `rustdesk://` unilinks
 ///
+/// Returns true if we successfully handle the uri provided.
 /// [Functions]
 /// 1. New Connection: rustdesk://connection/new/your_peer_id
-void parseRustdeskUri(String uriPath) {
+bool parseRustdeskUri(String uriPath) {
   final uri = Uri.tryParse(uriPath);
   if (uri == null) {
-    print("uri is not valid: $uriPath");
-    return;
+    debugPrint("uri is not valid: $uriPath");
+    return false;
   }
-  callUniLinksUriHandler(uri);
+  return callUniLinksUriHandler(uri);
 }
 
 /// uri handler
-void callUniLinksUriHandler(Uri uri) {
+///
+/// Returns true if we successfully handle the uri provided.
+bool callUniLinksUriHandler(Uri uri) {
   debugPrint("uni links called: $uri");
   // new connection
   if (uri.authority == "connection" && uri.path.startsWith("/new/")) {
     final peerId = uri.path.substring("/new/".length);
+    var param = uri.queryParameters;
+    String? switch_uuid = param["switch_uuid"];
     Future.delayed(Duration.zero, () {
-      rustDeskWinManager.newRemoteDesktop(peerId);
+      rustDeskWinManager.newRemoteDesktop(peerId, switch_uuid: switch_uuid);
     });
+    return true;
+  }
+  return false;
+}
+
+connectMainDesktop(String id,
+    {required bool isFileTransfer,
+    required bool isTcpTunneling,
+    required bool isRDP}) async {
+  if (isFileTransfer) {
+    await rustDeskWinManager.newFileTransfer(id);
+  } else if (isTcpTunneling || isRDP) {
+    await rustDeskWinManager.newPortForward(id, isRDP);
+  } else {
+    await rustDeskWinManager.newRemoteDesktop(id);
   }
 }
 
@@ -1276,7 +1413,7 @@ void callUniLinksUriHandler(Uri uri) {
 /// If [isFileTransfer], starts a session only for file transfer.
 /// If [isTcpTunneling], starts a session only for tcp tunneling.
 /// If [isRDP], starts a session only for rdp.
-void connect(BuildContext context, String id,
+connect(BuildContext context, String id,
     {bool isFileTransfer = false,
     bool isTcpTunneling = false,
     bool isRDP = false}) async {
@@ -1286,12 +1423,20 @@ void connect(BuildContext context, String id,
       "more than one connect type");
 
   if (isDesktop) {
-    if (isFileTransfer) {
-      await rustDeskWinManager.newFileTransfer(id);
-    } else if (isTcpTunneling || isRDP) {
-      await rustDeskWinManager.newPortForward(id, isRDP);
+    if (desktopType == DesktopType.main) {
+      await connectMainDesktop(
+        id,
+        isFileTransfer: isFileTransfer,
+        isTcpTunneling: isTcpTunneling,
+        isRDP: isRDP,
+      );
     } else {
-      await rustDeskWinManager.newRemoteDesktop(id);
+      await rustDeskWinManager.call(WindowType.Main, kWindowConnect, {
+        'id': id,
+        'isFileTransfer': isFileTransfer,
+        'isTcpTunneling': isTcpTunneling,
+        'isRDP': isRDP,
+      });
     }
   } else {
     if (isFileTransfer) {
@@ -1322,13 +1467,13 @@ void connect(BuildContext context, String id,
   }
 }
 
-Future<Map<String, String>> getHttpHeaders() async {
+Map<String, String> getHttpHeaders() {
   return {
     'Authorization': 'Bearer ${bind.mainGetLocalOption(key: 'access_token')}'
   };
 }
 
-// Simple wrapper of built-in types for refrence use.
+// Simple wrapper of built-in types for reference use.
 class SimpleWrapper<T> {
   T value;
   SimpleWrapper(this.value);
@@ -1364,7 +1509,7 @@ Future<void> reloadAllWindows() async {
 /// Indicate the flutter app is running in portable mode.
 ///
 /// [Note]
-/// Portable build is only avaliable on Windows.
+/// Portable build is only available on Windows.
 bool isRunningInPortableMode() {
   if (!Platform.isWindows) {
     return false;
@@ -1373,7 +1518,7 @@ bool isRunningInPortableMode() {
 }
 
 /// Window status callback
-void onActiveWindowChanged() async {
+Future<void> onActiveWindowChanged() async {
   print(
       "[MultiWindowHandler] active window changed: ${rustDeskWinManager.getActiveWindows()}");
   if (rustDeskWinManager.getActiveWindows().isEmpty) {
@@ -1384,10 +1529,230 @@ void onActiveWindowChanged() async {
         rustDeskWinManager.closeAllSubWindows()
       ]);
     } catch (err) {
-      debugPrint("$err");
+      debugPrintStack(label: "$err");
     } finally {
+      debugPrint("Start closing RustDesk...");
       await windowManager.setPreventClose(false);
       await windowManager.close();
+      if (Platform.isMacOS) {
+        RdPlatformChannel.instance.terminate();
+      }
     }
   }
+}
+
+Timer periodic_immediate(Duration duration, Future<void> Function() callback) {
+  Future.delayed(Duration.zero, callback);
+  return Timer.periodic(duration, (timer) async {
+    await callback();
+  });
+}
+
+/// return a human readable windows version
+WindowsTarget getWindowsTarget(int buildNumber) {
+  if (!Platform.isWindows) {
+    return WindowsTarget.naw;
+  }
+  if (buildNumber >= 22000) {
+    return WindowsTarget.w11;
+  } else if (buildNumber >= 10240) {
+    return WindowsTarget.w10;
+  } else if (buildNumber >= 9600) {
+    return WindowsTarget.w8_1;
+  } else if (buildNumber >= 9200) {
+    return WindowsTarget.w8;
+  } else if (buildNumber >= 7601) {
+    return WindowsTarget.w7;
+  } else if (buildNumber >= 6002) {
+    return WindowsTarget.vista;
+  } else {
+    // minimum support
+    return WindowsTarget.xp;
+  }
+}
+
+/// Get windows target build number.
+///
+/// [Note]
+/// Please use this function wrapped with `Platform.isWindows`.
+int getWindowsTargetBuildNumber() {
+  final rtlGetVersion = DynamicLibrary.open('ntdll.dll').lookupFunction<
+      Void Function(Pointer<win32.OSVERSIONINFOEX>),
+      void Function(Pointer<win32.OSVERSIONINFOEX>)>('RtlGetVersion');
+  final osVersionInfo = getOSVERSIONINFOEXPointer();
+  rtlGetVersion(osVersionInfo);
+  int buildNumber = osVersionInfo.ref.dwBuildNumber;
+  calloc.free(osVersionInfo);
+  return buildNumber;
+}
+
+/// Get Windows OS version pointer
+///
+/// [Note]
+/// Please use this function wrapped with `Platform.isWindows`.
+Pointer<win32.OSVERSIONINFOEX> getOSVERSIONINFOEXPointer() {
+  final pointer = calloc<win32.OSVERSIONINFOEX>();
+  pointer.ref
+    ..dwOSVersionInfoSize = sizeOf<win32.OSVERSIONINFOEX>()
+    ..dwBuildNumber = 0
+    ..dwMajorVersion = 0
+    ..dwMinorVersion = 0
+    ..dwPlatformId = 0
+    ..szCSDVersion = ''
+    ..wServicePackMajor = 0
+    ..wServicePackMinor = 0
+    ..wSuiteMask = 0
+    ..wProductType = 0
+    ..wReserved = 0;
+  return pointer;
+}
+
+/// Indicating we need to use compatible ui mode.
+///
+/// [Conditions]
+/// - Windows 7, window will overflow when we use frameless ui.
+bool get kUseCompatibleUiMode =>
+    Platform.isWindows &&
+    const [WindowsTarget.w7].contains(windowsBuildNumber.windowsVersion);
+
+class ServerConfig {
+  late String idServer;
+  late String relayServer;
+  late String apiServer;
+  late String key;
+
+  ServerConfig(
+      {String? idServer, String? relayServer, String? apiServer, String? key}) {
+    this.idServer = idServer?.trim() ?? '';
+    this.relayServer = relayServer?.trim() ?? '';
+    this.apiServer = apiServer?.trim() ?? '';
+    this.key = key?.trim() ?? '';
+  }
+
+  /// decode from shared string (from user shared or rustdesk-server generated)
+  /// also see [encode]
+  /// throw when decoding failure
+  ServerConfig.decode(String msg) {
+    final input = msg.split('').reversed.join('');
+    final bytes = base64Decode(base64.normalize(input));
+    final json = jsonDecode(utf8.decode(bytes));
+
+    idServer = json['host'] ?? '';
+    relayServer = json['relay'] ?? '';
+    apiServer = json['api'] ?? '';
+    key = json['key'] ?? '';
+  }
+
+  /// encode to shared string
+  /// also see [ServerConfig.decode]
+  String encode() {
+    Map<String, String> config = {};
+    config['host'] = idServer.trim();
+    config['relay'] = relayServer.trim();
+    config['api'] = apiServer.trim();
+    config['key'] = key.trim();
+    return base64Encode(Uint8List.fromList(jsonEncode(config).codeUnits))
+        .split('')
+        .reversed
+        .join();
+  }
+
+  /// from local options
+  ServerConfig.fromOptions(Map<String, dynamic> options)
+      : idServer = options['custom-rendezvous-server'] ?? "",
+        relayServer = options['relay-server'] ?? "",
+        apiServer = options['api-server'] ?? "",
+        key = options['key'] ?? "";
+}
+
+Widget dialogButton(String text,
+    {required VoidCallback? onPressed,
+    bool isOutline = false,
+    TextStyle? style,
+    ButtonStyle? buttonStyle}) {
+  if (isDesktop) {
+    if (isOutline) {
+      return OutlinedButton(
+        onPressed: onPressed,
+        child: Text(translate(text), style: style),
+      );
+    } else {
+      return ElevatedButton(
+        style: ElevatedButton.styleFrom(elevation: 0).merge(buttonStyle),
+        onPressed: onPressed,
+        child: Text(translate(text), style: style),
+      );
+    }
+  } else {
+    return TextButton(
+        onPressed: onPressed,
+        child: Text(
+          translate(text),
+          style: style,
+        ));
+  }
+}
+
+int version_cmp(String v1, String v2) {
+  return bind.versionToNumber(v: v1) - bind.versionToNumber(v: v2);
+}
+
+String getWindowName({WindowType? overrideType}) {
+  switch (overrideType ?? kWindowType) {
+    case WindowType.Main:
+      return "RustDesk";
+    case WindowType.FileTransfer:
+      return "File Transfer - RustDesk";
+    case WindowType.PortForward:
+      return "Port Forward - RustDesk";
+    case WindowType.RemoteDesktop:
+      return "Remote Desktop - RustDesk";
+    default:
+      break;
+  }
+  return "RustDesk";
+}
+
+String getWindowNameWithId(String id, {WindowType? overrideType}) {
+  return "${DesktopTab.labelGetterAlias(id).value} - ${getWindowName(overrideType: overrideType)}";
+}
+
+Future<void> updateSystemWindowTheme() async {
+  // Set system window theme for macOS.
+  final userPreference = MyTheme.getThemeModePreference();
+  if (userPreference != ThemeMode.system) {
+    if (Platform.isMacOS) {
+      await RdPlatformChannel.instance.changeSystemWindowTheme(
+          userPreference == ThemeMode.light
+              ? SystemWindowTheme.light
+              : SystemWindowTheme.dark);
+    }
+  }
+}
+/// macOS only
+///
+/// Note: not found a general solution for rust based AVFoundation bingding.
+/// [AVFoundation] crate has compile error.
+const kMacOSPermChannel = MethodChannel("org.rustdesk.rustdesk/macos");
+
+enum PermissionAuthorizeType {
+  undetermined,
+  authorized,
+  denied, // and restricted
+}
+
+Future<PermissionAuthorizeType> osxCanRecordAudio() async {
+  int res = await kMacOSPermChannel.invokeMethod("canRecordAudio");
+  print(res);
+  if (res > 0) {
+    return PermissionAuthorizeType.authorized;
+  } else if (res == 0) {
+    return PermissionAuthorizeType.undetermined;
+  } else {
+    return PermissionAuthorizeType.denied;
+  }
+}
+
+Future<bool> osxRequestAudio() async {
+  return await kMacOSPermChannel.invokeMethod("requestRecordAudio");
 }

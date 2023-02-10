@@ -13,7 +13,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("setup_server_tip", "For faster connection, please set up your own server"),
         ("Auto Login", "Auto Login (Only valid if you set \"Lock after session end\")"),
         ("whitelist_tip", "Only whitelisted IP can access me"),
-        ("whitelist_sep", "Seperated by comma, semicolon, spaces or new line"),
+        ("whitelist_sep", "Separated by comma, semicolon, spaces or new line"),
         ("Wrong credentials", "Wrong username or password"),
         ("invalid_http", "must start with http:// or https://"),
         ("install_daemon_tip", "For starting on boot, you need to install system service."),
@@ -33,7 +33,15 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("elevated_foreground_window_tip", "The current window of the remote desktop requires higher privilege to operate, so it's unable to use the mouse and keyboard temporarily. You can request the remote user to minimize the current window, or click elevation button on the connection management window. To avoid this problem, it is recommended to install the software on the remote device."),
         ("JumpLink", "View"),
         ("Stop service", "Stop Service"),
-        ("or", ""),
-        ("Continue with", ""),
+        ("hide_cm_tip", "Allow hiding only if accepting sessions via password and using permanent password"),
+        ("wayland_experiment_tip", "Wayland support is in experimental stage, please use X11 if you require unattended access."),
+        ("Slogan_tip", "Made with heart in this chaotic world!"),
+        ("verification_tip", "A new device has been detected, and a verification code has been sent to the registered email address, enter the verification code to continue logging in."),
+        ("software_render_tip", "If you have an Nvidia graphics card and the remote window closes immediately after connecting, installing the nouveau driver and choosing to use software rendering may help. A software restart is required."),
+        ("config_input", "In order to control remote desktop with keyboard, you need to grant RustDesk \"Input Monitoring\" permissions."),
+        ("request_elevation_tip","You can also request elevation if there is someone on the remote side."),
+        ("wait_accept_uac_tip","Please wait for the remote user to accept the UAC dialog."),
+        ("still_click_uac_tip", "Still requires the remote user to click OK on the UAC window of running RustDesk."),
+        ("config_microphone", "In order to speak remotely, you need to grant RustDesk \"Record Audio\" permissions.")
         ].iter().cloned().collect();
 }

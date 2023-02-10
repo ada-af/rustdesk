@@ -12,18 +12,19 @@ import 'package:flutter_hbb/generated_bridge.dart';
 import 'package:flutter_hbb/models/ab_model.dart';
 import 'package:flutter_hbb/models/chat_model.dart';
 import 'package:flutter_hbb/models/file_model.dart';
+import 'package:flutter_hbb/models/group_model.dart';
+import 'package:flutter_hbb/models/peer_tab_model.dart';
 import 'package:flutter_hbb/models/server_model.dart';
 import 'package:flutter_hbb/models/user_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:flutter_hbb/common/shared_state.dart';
-import 'package:flutter_hbb/utils/multi_window_manager.dart';
 import 'package:tuple/tuple.dart';
 import 'package:image/image.dart' as img2;
-import 'package:flutter_custom_cursor/flutter_custom_cursor.dart';
+import 'package:flutter_custom_cursor/cursor_manager.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:get/get.dart';
 
 import '../common.dart';
-import '../common/shared_state.dart';
 import '../utils/image.dart' as img;
 import '../mobile/widgets/dialog.dart';
 import 'input_model.dart';
@@ -59,7 +60,7 @@ class FfiModel with ChangeNotifier {
 
   bool get touchMode => _touchMode;
 
-  bool get isPeerAndroid => _pi.platform == 'Android';
+  bool get isPeerAndroid => _pi.platform == kPeerPlatformAndroid;
 
   set inputBlocked(v) {
     _inputBlocked = v;
@@ -140,7 +141,7 @@ class FfiModel with ChangeNotifier {
         setConnectionType(
             peerId, evt['secure'] == 'true', evt['direct'] == 'true');
       } else if (name == 'switch_display') {
-        handleSwitchDisplay(evt);
+        handleSwitchDisplay(evt, peerId);
       } else if (name == 'cursor_data') {
         await parent.target?.cursorModel.updateCursorData(evt);
       } else if (name == 'cursor_id') {
@@ -182,13 +183,9 @@ class FfiModel with ChangeNotifier {
       } else if (name == 'update_privacy_mode') {
         updatePrivacyMode(evt, peerId);
       } else if (name == 'new_connection') {
-        var arg = evt['peer_id'].toString();
-        if (arg.startsWith(kUniLinksPrefix)) {
-          parseRustdeskUri(arg);
-        } else {
-          Future.delayed(Duration.zero, () {
-            rustDeskWinManager.newRemoteDesktop(arg);
-          });
+        var uni_links = evt['uni_links'].toString();
+        if (uni_links.startsWith(kUniLinksPrefix)) {
+          parseRustdeskUri(uni_links);
         }
       } else if (name == 'alias') {
         handleAliasChanged(evt);
@@ -197,6 +194,30 @@ class FfiModel with ChangeNotifier {
         parent.target?.serverModel.setShowElevation(show);
       } else if (name == 'cancel_msgbox') {
         cancelMsgBox(evt, peerId);
+      } else if (name == 'switch_back') {
+        final peer_id = evt['peer_id'].toString();
+        await bind.sessionSwitchSides(id: peer_id);
+        closeConnection(id: peer_id);
+      } else if (name == "on_url_scheme_received") {
+        final url = evt['url'].toString();
+        parseRustdeskUri(url);
+      } else if (name == "on_voice_call_waiting") {
+        // Waiting for the response from the peer.
+        parent.target?.chatModel.onVoiceCallWaiting();
+      } else if (name == "on_voice_call_started") {
+        // Voice call is connected.
+        parent.target?.chatModel.onVoiceCallStarted();
+      } else if (name == "on_voice_call_closed") {
+        // Voice call is closed with reason.
+        final reason = evt['reason'].toString();
+        parent.target?.chatModel.onVoiceCallClosed(reason);
+      } else if (name == "on_voice_call_incoming") {
+        // Voice call is requested by the peer.
+        parent.target?.chatModel.onVoiceCallIncoming();
+      } else if (name == "update_voice_call_state") {
+        parent.target?.serverModel.updateVoiceCallState(evt);
+      } else {
+        debugPrint("Unknown event name: $name");
       }
     };
   }
@@ -213,7 +234,7 @@ class FfiModel with ChangeNotifier {
     }
   }
 
-  handleSwitchDisplay(Map<String, dynamic> evt) {
+  handleSwitchDisplay(Map<String, dynamic> evt, String peerId) {
     final oldOrientation = _display.width > _display.height;
     var old = _pi.currentDisplay;
     _pi.currentDisplay = int.parse(evt['display']);
@@ -221,13 +242,25 @@ class FfiModel with ChangeNotifier {
     _display.y = double.parse(evt['y']);
     _display.width = int.parse(evt['width']);
     _display.height = int.parse(evt['height']);
+    _display.cursorEmbedded = int.parse(evt['cursor_embedded']) == 1;
     if (old != _pi.currentDisplay) {
       parent.target?.cursorModel.updateDisplayOrigin(_display.x, _display.y);
+    }
+
+    try {
+      CurrentDisplayState.find(peerId).value = _pi.currentDisplay;
+    } catch (e) {
+      //
     }
 
     // remote is mobile, and orientation changed
     if ((_display.width > _display.height) != oldOrientation) {
       gFFI.canvasModel.updateViewStyle();
+    }
+    if (_pi.platform == kPeerPlatformLinux ||
+        _pi.platform == kPeerPlatformWindows ||
+        _pi.platform == kPeerPlatformMacOS) {
+      parent.target?.canvasModel.updateViewStyle();
     }
     parent.target?.recordingModel.onSwitchDisplay();
     notifyListeners();
@@ -249,15 +282,20 @@ class FfiModel with ChangeNotifier {
     final text = evt['text'];
     final link = evt['link'];
     if (type == 're-input-password') {
-      wrongPasswordDialog(id, dialogManager);
+      wrongPasswordDialog(id, dialogManager, type, title, text);
     } else if (type == 'input-password') {
       enterPasswordDialog(id, dialogManager);
     } else if (type == 'restarting') {
       showMsgBox(id, type, title, text, link, false, dialogManager,
           hasCancel: false);
     } else if (type == 'wait-remote-accept-nook') {
-      msgBoxCommon(dialogManager, title, Text(translate(text)),
-          [msgBoxButton("Cancel", closeConnection)]);
+      showWaitAcceptDialog(id, type, title, text, dialogManager);
+    } else if (type == 'on-uac' || type == 'on-foreground-elevated') {
+      showOnBlockDialog(id, type, title, text, dialogManager);
+    } else if (type == 'wait-uac') {
+      showWaitUacDialog(id, dialogManager, type);
+    } else if (type == 'elevation-error') {
+      showElevationError(id, type, title, text, dialogManager);
     } else {
       var hasRetry = evt['hasRetry'] == 'true';
       showMsgBox(id, type, title, text, link, hasRetry, dialogManager);
@@ -330,6 +368,7 @@ class FfiModel with ChangeNotifier {
         d.y = d0['y'].toDouble();
         d.width = d0['width'];
         d.height = d0['height'];
+        d.cursorEmbedded = d0['cursor_embedded'] == 1;
         _pi.displays.add(d);
       }
       if (_pi.currentDisplay < _pi.displays.length) {
@@ -342,6 +381,8 @@ class FfiModel with ChangeNotifier {
         _waitForImage[peerId] = true;
         _reconnects = 1;
       }
+      Map<String, dynamic> features = json.decode(evt['features']);
+      _pi.features.privacyMode = features['privacy_mode'] == 1;
     }
     notifyListeners();
   }
@@ -376,12 +417,22 @@ class ImageModel with ChangeNotifier {
 
   WeakReference<FFI> parent;
 
+  final List<Function(String)> _callbacksOnFirstImage = [];
+
   ImageModel(this.parent);
+
+  addCallbackOnFirstImage(Function(String) cb) =>
+      _callbacksOnFirstImage.add(cb);
 
   onRgba(Uint8List rgba) {
     if (_waitForImage[id]!) {
       _waitForImage[id] = false;
       parent.target?.dialogManager.dismissAll();
+      if (isDesktop) {
+        for (final cb in _callbacksOnFirstImage) {
+          cb(id);
+        }
+      }
     }
     final pid = parent.target?.id;
     ui.decodeImageFromPixels(
@@ -491,7 +542,7 @@ class ViewStyle {
 
   double get scale {
     double s = 1.0;
-    if (style == 'adaptive') {
+    if (style == kRemoteViewStyleAdaptive) {
       final s1 = width / displayWidth;
       final s2 = height / displayHeight;
       s = s1 < s2 ? s1 : s2;
@@ -507,6 +558,8 @@ class CanvasModel with ChangeNotifier {
   double _y = 0;
   // image scale
   double _scale = 1.0;
+  double _devicePixelRatio = 1.0;
+  Size _size = Size.zero;
   // the tabbar over the image
   // double tabBarHeight = 0.0;
   // the window border's width
@@ -520,6 +573,8 @@ class CanvasModel with ChangeNotifier {
   ScrollStyle _scrollStyle = ScrollStyle.scrollauto;
   ViewStyle _lastViewStyle = ViewStyle();
 
+  final _imageOverflow = false.obs;
+
   WeakReference<FFI> parent;
 
   CanvasModel(this.parent);
@@ -527,7 +582,13 @@ class CanvasModel with ChangeNotifier {
   double get x => _x;
   double get y => _y;
   double get scale => _scale;
+  double get devicePixelRatio => _devicePixelRatio;
+  Size get size => _size;
   ScrollStyle get scrollStyle => _scrollStyle;
+  ViewStyle get viewStyle => _lastViewStyle;
+  RxBool get imageOverflow => _imageOverflow;
+
+  _resetScroll() => setScrollPercent(0.0, 0.0);
 
   setScrollPercent(double x, double y) {
     _scrollX = x;
@@ -538,37 +599,54 @@ class CanvasModel with ChangeNotifier {
   double get scrollY => _scrollY;
 
   updateViewStyle() async {
+    Size getSize() {
+      final size = MediaQueryData.fromWindow(ui.window).size;
+      // If minimized, w or h may be negative here.
+      double w = size.width - windowBorderWidth * 2;
+      double h = size.height - tabBarHeight - windowBorderWidth * 2;
+      return Size(w < 0 ? 0 : w, h < 0 ? 0 : h);
+    }
+
     final style = await bind.sessionGetViewStyle(id: id);
     if (style == null) {
       return;
     }
-    final sizeWidth = size.width;
-    final sizeHeight = size.height;
+
+    _size = getSize();
     final displayWidth = getDisplayWidth();
     final displayHeight = getDisplayHeight();
     final viewStyle = ViewStyle(
       style: style,
-      width: sizeWidth,
-      height: sizeHeight,
+      width: size.width,
+      height: size.height,
       displayWidth: displayWidth,
       displayHeight: displayHeight,
     );
     if (_lastViewStyle == viewStyle) {
       return;
     }
+    if (_lastViewStyle.style != viewStyle.style) {
+      _resetScroll();
+    }
     _lastViewStyle = viewStyle;
     _scale = viewStyle.scale;
-    _x = (sizeWidth - displayWidth * _scale) / 2;
-    _y = (sizeHeight - displayHeight * _scale) / 2;
+
+    _devicePixelRatio = ui.window.devicePixelRatio;
+    if (kIgnoreDpi && style == kRemoteViewStyleOriginal) {
+      _scale = 1.0 / _devicePixelRatio;
+    }
+    _x = (size.width - displayWidth * _scale) / 2;
+    _y = (size.height - displayHeight * _scale) / 2;
+    _imageOverflow.value = _x < 0 || y < 0;
     notifyListeners();
+    parent.target?.inputModel.refreshMousePos();
   }
 
   updateScrollStyle() async {
     final style = await bind.sessionGetScrollStyle(id: id);
-    if (style == 'scrollbar') {
+    if (style == kRemoteScrollStyleBar) {
       _scrollStyle = ScrollStyle.scrollbar;
-      _scrollX = 0.0;
-      _scrollY = 0.0;
+      _resetScroll();
     } else {
       _scrollStyle = ScrollStyle.scrollauto;
     }
@@ -581,6 +659,9 @@ class CanvasModel with ChangeNotifier {
     _scale = scale;
     notifyListeners();
   }
+
+  bool get cursorEmbedded =>
+      parent.target?.ffiModel.display.cursorEmbedded ?? false;
 
   int getDisplayWidth() {
     final defaultWidth = (isDesktop || isWebDesktop)
@@ -598,14 +679,6 @@ class CanvasModel with ChangeNotifier {
 
   double get windowBorderWidth => stateGlobal.windowBorderWidth.value;
   double get tabBarHeight => stateGlobal.tabBarHeight;
-
-  Size get size {
-    final size = MediaQueryData.fromWindow(ui.window).size;
-    // If minimized, w or h may be negative here.
-    double w = size.width - windowBorderWidth * 2;
-    double h = size.height - tabBarHeight - windowBorderWidth * 2;
-    return Size(w < 0 ? 0 : w, h < 0 ? 0 : h);
-  }
 
   moveDesktopMouse(double x, double y) {
     // On mobile platforms, move the canvas with the cursor.
@@ -696,7 +769,7 @@ class CanvasModel with ChangeNotifier {
 class CursorData {
   final String peerId;
   final int id;
-  final img2.Image? image;
+  final img2.Image image;
   double scale;
   Uint8List? data;
   final double hotxOrigin;
@@ -721,33 +794,40 @@ class CursorData {
 
   int _doubleToInt(double v) => (v * 10e6).round().toInt();
 
-  double _checkUpdateScale(double scale, bool shouldScale) {
+  double _checkUpdateScale(double scale) {
     double oldScale = this.scale;
-    if (!shouldScale) {
-      scale = 1.0;
-    } else {
+    if (scale != 1.0) {
       // Update data if scale changed.
-      if (Platform.isWindows) {
-        final tgtWidth = (width * scale).toInt();
-        final tgtHeight = (width * scale).toInt();
-        if (tgtWidth < kMinCursorSize || tgtHeight < kMinCursorSize) {
-          double sw = kMinCursorSize.toDouble() / width;
-          double sh = kMinCursorSize.toDouble() / height;
-          scale = sw < sh ? sh : sw;
-        }
+      final tgtWidth = (width * scale).toInt();
+      final tgtHeight = (width * scale).toInt();
+      if (tgtWidth < kMinCursorSize || tgtHeight < kMinCursorSize) {
+        double sw = kMinCursorSize.toDouble() / width;
+        double sh = kMinCursorSize.toDouble() / height;
+        scale = sw < sh ? sh : sw;
       }
     }
 
-    if (Platform.isWindows) {
-      if (_doubleToInt(oldScale) != _doubleToInt(scale)) {
+    if (_doubleToInt(oldScale) != _doubleToInt(scale)) {
+      if (Platform.isWindows) {
         data = img2
             .copyResize(
-              image!,
+              image,
               width: (width * scale).toInt(),
               height: (height * scale).toInt(),
               interpolation: img2.Interpolation.average,
             )
             .getBytes(format: img2.Format.bgra);
+      } else {
+        data = Uint8List.fromList(
+          img2.encodePng(
+            img2.copyResize(
+              image,
+              width: (width * scale).toInt(),
+              height: (height * scale).toInt(),
+              interpolation: img2.Interpolation.average,
+            ),
+          ),
+        );
       }
     }
 
@@ -757,19 +837,84 @@ class CursorData {
     return scale;
   }
 
-  String updateGetKey(double scale, bool shouldScale) {
-    scale = _checkUpdateScale(scale, shouldScale);
+  String updateGetKey(double scale) {
+    scale = _checkUpdateScale(scale);
     return '${peerId}_${id}_${_doubleToInt(width * scale)}_${_doubleToInt(height * scale)}';
+  }
+}
+
+const _forbiddenCursorPng =
+    'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAkZQTFRFAAAA2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4GWAwCAAAAAAAA2B4GAAAAMTExAAAAAAAA2B4G2B4G2B4GAAAAmZmZkZGRAQEBAAAA2B4G2B4G2B4G////oKCgAwMDag8D2B4G2B4G2B4Gra2tBgYGbg8D2B4G2B4Gubm5CQkJTwsCVgwC2B4GxcXFDg4OAAAAAAAA2B4G2B4Gz8/PFBQUAAAAAAAA2B4G2B4G2B4G2B4G2B4G2B4G2B4GDgIA2NjYGxsbAAAAAAAA2B4GFwMB4eHhIyMjAAAAAAAA2B4G6OjoLCwsAAAAAAAA2B4G2B4G2B4G2B4G2B4GCQEA4ODgv7+/iYmJY2NjAgICAAAA9PT0Ojo6AAAAAAAAAAAA+/v7SkpKhYWFr6+vAAAAAAAA8/PzOTk5ERER9fX1KCgoAAAAgYGBKioqAAAAAAAApqamlpaWAAAAAAAAAAAAAAAAAAAAAAAALi4u/v7+GRkZAAAAAAAAAAAAAAAAAAAAfn5+AAAAAAAAV1dXkJCQAAAAAAAAAQEBAAAAAAAAAAAA7Hz6BAAAAMJ0Uk5TAAIWEwEynNz6//fVkCAatP2fDUHs6cDD8d0mPfT5fiEskiIR584A0gejr3AZ+P4plfALf5ZiTL85a4ziD6697fzN3UYE4v/4TwrNHuT///tdRKZh///+1U/ZBv///yjb///eAVL//50Cocv//6oFBbPvpGZCbfT//7cIhv///8INM///zBEcWYSZmO7//////1P////ts/////8vBv//////gv//R/z///QQz9sevP///2waXhNO/+fc//8mev/5gAe2r90MAAAByUlEQVR4nGNggANGJmYWBpyAlY2dg5OTi5uHF6s0H78AJxRwCAphyguLgKRExcQlQLSkFLq8tAwnp6ycPNABjAqKQKNElVDllVU4OVVhVquJA81Q10BRoAkUUYbJa4Edoo0sr6PLqaePLG/AyWlohKTAmJPTBFnelAFoixmSAnNOTgsUeQZLTk4rJAXWnJw2EHlbiDyDPCenHZICe04HFrh+RydnBgYWPU5uJAWinJwucPNd3dw9GDw5Ob2QFHBzcnrD7ffx9fMPCOTkDEINhmC4+3x8Q0LDwlEDIoKTMzIKKg9SEBIdE8sZh6SAJZ6Tkx0qD1YQkpCYlIwclCng0AXLQxSEpKalZyCryATKZwkhKQjJzsnNQ1KQXwBUUVhUXBJYWgZREFJeUVmFpMKlWg+anmqgCkJq6+obkG1pLEBTENLU3NKKrIKhrb2js8u4G6Kgpze0r3/CRAZMAHbkpJDJU6ZMmTqtFbuC6TNmhsyaMnsOFlmwgrnzpsxfELJwEXZ5Bp/FS3yWLlsesmLlKuwKVk9Ys5Zh3foN0zduwq5g85atDAzbpqSGbN9RhV0FGOzctWH3lD14FOzdt3H/gQw8Cg4u2gQPAwBYDXXdIH+wqAAAAABJRU5ErkJggg==';
+const _defaultCursorPng =
+    'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAFmSURBVFiF7dWxSlxREMbx34QFDRowYBchZSxSCWlMCOwD5FGEFHap06UI7KPsAyyEEIQFqxRaCqYTsqCJFsKkuAeRXb17wrqV918dztw55zszc2fo6Oh47MR/e3zO1/iAHWmznHKGQwx9ip/LEbCfazbsoY8j/JLOhcC6sCW9wsjEwJf483AC9nPNc1+lFRwI13d+l3rYFS799rFGxJMqARv2pBXh+72XQ7gWvklPS7TmMl9Ak/M+DqrENvxAv/guKKApuKPWl0/TROK4+LbSqzhuB+OZ3fRSeFPWY+Fkyn56Y29hfgTSpnQ+s98cvorVey66uPlNFxKwZOYLCGfCs5n9NMYVrsp6mvXSoFqpqYFDvMBkStgJJe93dZOwVXxbqUnBENulydSReqUrDhcX0PT2EXarBYS3GNXMhboinBgIl9K71kg0L3+PvyYGdVpruT2MwrF0iotiXfIwus0Dj+OOjo6Of+e7ab74RkpgAAAAAElFTkSuQmCC';
+
+final preForbiddenCursor = PredefinedCursor(
+  png: _forbiddenCursorPng,
+  id: -2,
+);
+final preDefaultCursor = PredefinedCursor(
+  png: _defaultCursorPng,
+  id: -1,
+  hotxGetter: (double w) => w / 2,
+  hotyGetter: (double h) => h / 2,
+);
+
+class PredefinedCursor {
+  ui.Image? _image;
+  img2.Image? _image2;
+  CursorData? _cache;
+  String png;
+  int id;
+  double Function(double)? hotxGetter;
+  double Function(double)? hotyGetter;
+
+  PredefinedCursor(
+      {required this.png, required this.id, this.hotxGetter, this.hotyGetter}) {
+    init();
+  }
+
+  ui.Image? get image => _image;
+  CursorData? get cache => _cache;
+
+  init() {
+    _image2 = img2.decodePng(base64Decode(png));
+    if (_image2 != null) {
+      () async {
+        final defaultImg = _image2!;
+        // This function is called only one time, no need to care about the performance.
+        Uint8List data = defaultImg.getBytes(format: img2.Format.rgba);
+        _image = await img.decodeImageFromPixels(
+            data, defaultImg.width, defaultImg.height, ui.PixelFormat.rgba8888);
+
+        double scale = 1.0;
+        if (Platform.isWindows) {
+          data = _image2!.getBytes(format: img2.Format.bgra);
+        } else {
+          data = Uint8List.fromList(img2.encodePng(_image2!));
+        }
+
+        _cache = CursorData(
+          peerId: '',
+          id: id,
+          image: _image2!.clone(),
+          scale: scale,
+          data: data,
+          hotxOrigin:
+              hotxGetter != null ? hotxGetter!(_image2!.width.toDouble()) : 0,
+          hotyOrigin:
+              hotyGetter != null ? hotyGetter!(_image2!.height.toDouble()) : 0,
+          width: _image2!.width,
+          height: _image2!.height,
+        );
+      }();
+    }
   }
 }
 
 class CursorModel with ChangeNotifier {
   ui.Image? _image;
-  ui.Image? _defaultImage;
   final _images = <int, Tuple3<ui.Image, double, double>>{};
   CursorData? _cache;
-  final _defaultCacheId = -1;
-  CursorData? _defaultCache;
   final _cacheMap = <int, CursorData>{};
   final _cacheKeys = <String>{};
   double _x = -10000;
@@ -778,16 +923,15 @@ class CursorModel with ChangeNotifier {
   double _hoty = 0;
   double _displayOriginX = 0;
   double _displayOriginY = 0;
+  DateTime? _firstUpdateMouseTime;
   bool gotMouseControl = true;
   DateTime _lastPeerMouse = DateTime.now()
-      .subtract(Duration(milliseconds: 2 * kMouseControlTimeoutMSec));
+      .subtract(Duration(milliseconds: 3000 * kMouseControlTimeoutMSec));
   String id = '';
   WeakReference<FFI> parent;
 
   ui.Image? get image => _image;
-  ui.Image? get defaultImage => _defaultImage;
   CursorData? get cache => _cache;
-  CursorData? get defaultCache => _getDefaultCache();
 
   double get x => _x - _displayOriginX;
   double get y => _y - _displayOriginY;
@@ -801,49 +945,19 @@ class CursorModel with ChangeNotifier {
       DateTime.now().difference(_lastPeerMouse).inMilliseconds <
       kMouseControlTimeoutMSec;
 
-  CursorModel(this.parent) {
-    _getDefaultImage();
-    _getDefaultCache();
+  bool isConnIn2Secs() {
+    if (_firstUpdateMouseTime == null) {
+      _firstUpdateMouseTime = DateTime.now();
+      return true;
+    } else {
+      return DateTime.now().difference(_firstUpdateMouseTime!).inSeconds < 2;
+    }
   }
+
+  CursorModel(this.parent);
 
   Set<String> get cachedKeys => _cacheKeys;
   addKey(String key) => _cacheKeys.add(key);
-
-  Future<ui.Image?> _getDefaultImage() async {
-    if (_defaultImage == null) {
-      final defaultImg = defaultCursorImage!;
-      // This function is called only one time, no need to care about the performance.
-      Uint8List data = defaultImg.getBytes(format: img2.Format.rgba);
-      _defaultImage = await img.decodeImageFromPixels(
-          data, defaultImg.width, defaultImg.height, ui.PixelFormat.rgba8888);
-    }
-    return _defaultImage;
-  }
-
-  CursorData? _getDefaultCache() {
-    if (_defaultCache == null) {
-      Uint8List data;
-      double scale = 1.0;
-      if (Platform.isWindows) {
-        data = defaultCursorImage!.getBytes(format: img2.Format.bgra);
-      } else {
-        data = Uint8List.fromList(img2.encodePng(defaultCursorImage!));
-      }
-
-      _defaultCache = CursorData(
-        peerId: id,
-        id: _defaultCacheId,
-        image: defaultCursorImage?.clone(),
-        scale: scale,
-        data: data,
-        hotxOrigin: defaultCursorImage!.width / 2,
-        hotyOrigin: defaultCursorImage!.height / 2,
-        width: defaultCursorImage!.width,
-        height: defaultCursorImage!.height,
-      );
-    }
-    return _defaultCache;
-  }
 
   // remote physical display coordinate
   Rect getVisibleRect() {
@@ -992,9 +1106,9 @@ class CursorModel with ChangeNotifier {
   Future<bool> _updateCache(
       Uint8List rgba, ui.Image image, int id, int w, int h) async {
     Uint8List? data;
-    img2.Image? imgOrigin;
+    img2.Image imgOrigin =
+        img2.Image.fromBytes(w, h, rgba, format: img2.Format.rgba);
     if (Platform.isWindows) {
-      imgOrigin = img2.Image.fromBytes(w, h, rgba, format: img2.Format.rgba);
       data = imgOrigin.getBytes(format: img2.Format.bgra);
     } else {
       ByteData? imgBytes =
@@ -1036,8 +1150,10 @@ class CursorModel with ChangeNotifier {
 
   /// Update the cursor position.
   updateCursorPosition(Map<String, dynamic> evt, String id) async {
-    gotMouseControl = false;
-    _lastPeerMouse = DateTime.now();
+    if (!isConnIn2Secs()) {
+      gotMouseControl = false;
+      _lastPeerMouse = DateTime.now();
+    }
     _x = double.parse(evt['x']);
     _y = double.parse(evt['y']);
     try {
@@ -1082,18 +1198,10 @@ class CursorModel with ChangeNotifier {
   _clearCache() {
     final keys = {...cachedKeys};
     for (var k in keys) {
-      customCursorController.freeCache(k);
+      debugPrint("deleting cursor with key $k");
+      CursorManager.instance.deleteCursor(k);
     }
   }
-
-  Uint8List? cachedForbidmemoryCursorData;
-  void updateForbiddenCursorBuffer() {
-    cachedForbidmemoryCursorData ??= base64Decode(
-        'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAkZQTFRFAAAA2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4G2B4GWAwCAAAAAAAA2B4GAAAAMTExAAAAAAAA2B4G2B4G2B4GAAAAmZmZkZGRAQEBAAAA2B4G2B4G2B4G////oKCgAwMDag8D2B4G2B4G2B4Gra2tBgYGbg8D2B4G2B4Gubm5CQkJTwsCVgwC2B4GxcXFDg4OAAAAAAAA2B4G2B4Gz8/PFBQUAAAAAAAA2B4G2B4G2B4G2B4G2B4G2B4G2B4GDgIA2NjYGxsbAAAAAAAA2B4GFwMB4eHhIyMjAAAAAAAA2B4G6OjoLCwsAAAAAAAA2B4G2B4G2B4G2B4G2B4GCQEA4ODgv7+/iYmJY2NjAgICAAAA9PT0Ojo6AAAAAAAAAAAA+/v7SkpKhYWFr6+vAAAAAAAA8/PzOTk5ERER9fX1KCgoAAAAgYGBKioqAAAAAAAApqamlpaWAAAAAAAAAAAAAAAAAAAAAAAALi4u/v7+GRkZAAAAAAAAAAAAAAAAAAAAfn5+AAAAAAAAV1dXkJCQAAAAAAAAAQEBAAAAAAAAAAAA7Hz6BAAAAMJ0Uk5TAAIWEwEynNz6//fVkCAatP2fDUHs6cDD8d0mPfT5fiEskiIR584A0gejr3AZ+P4plfALf5ZiTL85a4ziD6697fzN3UYE4v/4TwrNHuT///tdRKZh///+1U/ZBv///yjb///eAVL//50Cocv//6oFBbPvpGZCbfT//7cIhv///8INM///zBEcWYSZmO7//////1P////ts/////8vBv//////gv//R/z///QQz9sevP///2waXhNO/+fc//8mev/5gAe2r90MAAAByUlEQVR4nGNggANGJmYWBpyAlY2dg5OTi5uHF6s0H78AJxRwCAphyguLgKRExcQlQLSkFLq8tAwnp6ycPNABjAqKQKNElVDllVU4OVVhVquJA81Q10BRoAkUUYbJa4Edoo0sr6PLqaePLG/AyWlohKTAmJPTBFnelAFoixmSAnNOTgsUeQZLTk4rJAXWnJw2EHlbiDyDPCenHZICe04HFrh+RydnBgYWPU5uJAWinJwucPNd3dw9GDw5Ob2QFHBzcnrD7ffx9fMPCOTkDEINhmC4+3x8Q0LDwlEDIoKTMzIKKg9SEBIdE8sZh6SAJZ6Tkx0qD1YQkpCYlIwclCng0AXLQxSEpKalZyCryATKZwkhKQjJzsnNQ1KQXwBUUVhUXBJYWgZREFJeUVmFpMKlWg+anmqgCkJq6+obkG1pLEBTENLU3NKKrIKhrb2js8u4G6Kgpze0r3/CRAZMAHbkpJDJU6ZMmTqtFbuC6TNmhsyaMnsOFlmwgrnzpsxfELJwEXZ5Bp/FS3yWLlsesmLlKuwKVk9Ys5Zh3foN0zduwq5g85atDAzbpqSGbN9RhV0FGOzctWH3lD14FOzdt3H/gQw8Cg4u2gQPAwBYDXXdIH+wqAAAAABJRU5ErkJggg==');
-  }
-
-  img2.Image? defaultCursorImage = img2.decodePng(base64Decode(
-      'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAFmSURBVFiF7dWxSlxREMbx34QFDRowYBchZSxSCWlMCOwD5FGEFHap06UI7KPsAyyEEIQFqxRaCqYTsqCJFsKkuAeRXb17wrqV918dztw55zszc2fo6Oh47MR/e3zO1/iAHWmznHKGQwx9ip/LEbCfazbsoY8j/JLOhcC6sCW9wsjEwJf483AC9nPNc1+lFRwI13d+l3rYFS799rFGxJMqARv2pBXh+72XQ7gWvklPS7TmMl9Ak/M+DqrENvxAv/guKKApuKPWl0/TROK4+LbSqzhuB+OZ3fRSeFPWY+Fkyn56Y29hfgTSpnQ+s98cvorVey66uPlNFxKwZOYLCGfCs5n9NMYVrsp6mvXSoFqpqYFDvMBkStgJJe93dZOwVXxbqUnBENulydSReqUrDhcX0PT2EXarBYS3GNXMhboinBgIl9K71kg0L3+PvyYGdVpruT2MwrF0iotiXfIwus0Dj+OOjo6Of+e7ab74RkpgAAAAAElFTkSuQmCC'));
 }
 
 class QualityMonitorData {
@@ -1198,9 +1306,11 @@ class FFI {
   late final ChatModel chatModel; // session
   late final FileModel fileModel; // session
   late final AbModel abModel; // global
+  late final GroupModel groupModel; // global
   late final UserModel userModel; // global
+  late final PeerTabModel peerTabModel; // global
   late final QualityMonitorModel qualityMonitorModel; // session
-  late final RecordingModel recordingModel; // recording
+  late final RecordingModel recordingModel; // session
   late final InputModel inputModel; // session
 
   FFI() {
@@ -1211,8 +1321,10 @@ class FFI {
     serverModel = ServerModel(WeakReference(this));
     chatModel = ChatModel(WeakReference(this));
     fileModel = FileModel(WeakReference(this));
-    abModel = AbModel(WeakReference(this));
     userModel = UserModel(WeakReference(this));
+    peerTabModel = PeerTabModel(WeakReference(this));
+    abModel = AbModel(WeakReference(this));
+    groupModel = GroupModel(WeakReference(this));
     qualityMonitorModel = QualityMonitorModel(WeakReference(this));
     recordingModel = RecordingModel(WeakReference(this));
     inputModel = InputModel(WeakReference(this));
@@ -1220,7 +1332,9 @@ class FFI {
 
   /// Start with the given [id]. Only transfer file if [isFileTransfer], only port forward if [isPortForward].
   void start(String id,
-      {bool isFileTransfer = false, bool isPortForward = false}) {
+      {bool isFileTransfer = false,
+      bool isPortForward = false,
+      String? switchUuid}) {
     assert(!(isFileTransfer && isPortForward), 'more than one connect type');
     if (isFileTransfer) {
       connType = ConnType.fileTransfer;
@@ -1236,19 +1350,23 @@ class FFI {
     }
     // ignore: unused_local_variable
     final addRes = bind.sessionAddSync(
-        id: id, isFileTransfer: isFileTransfer, isPortForward: isPortForward);
+      id: id,
+      isFileTransfer: isFileTransfer,
+      isPortForward: isPortForward,
+      switchUuid: switchUuid ?? "",
+    );
     final stream = bind.sessionStart(id: id);
     final cb = ffiModel.startEventListener(id);
     () async {
       await for (final message in stream) {
-        if (message is Event) {
+        if (message is EventToUI_Event) {
           try {
             Map<String, dynamic> event = json.decode(message.field0);
             await cb(event);
           } catch (e) {
             debugPrint('json.decode fail1(): $e, ${message.field0}');
           }
-        } else if (message is Rgba) {
+        } else if (message is EventToUI_Rgba) {
           imageModel.onRgba(message.field0);
         }
       }
@@ -1273,13 +1391,13 @@ class FFI {
           canvasModel.y, canvasModel.scale, ffiModel.pi.currentDisplay);
     }
     bind.sessionClose(id: id);
-    id = '';
     imageModel.update(null);
     cursorModel.clear();
     ffiModel.clear();
     canvasModel.clear();
     inputModel.resetModifiers();
     debugPrint('model $id closed');
+    id = '';
   }
 
   void setMethodCallHandler(FMethod callback) {
@@ -1296,6 +1414,7 @@ class Display {
   double y = 0;
   int width = 0;
   int height = 0;
+  bool cursorEmbedded = false;
 
   Display() {
     width = (isDesktop || isWebDesktop)
@@ -1307,6 +1426,10 @@ class Display {
   }
 }
 
+class Features {
+  bool privacyMode = false;
+}
+
 class PeerInfo {
   String version = '';
   String username = '';
@@ -1315,6 +1438,7 @@ class PeerInfo {
   bool sasEnabled = false;
   int currentDisplay = 0;
   List<Display> displays = [];
+  Features features = Features();
 }
 
 const canvasKey = 'canvas';

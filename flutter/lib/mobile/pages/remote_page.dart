@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/mobile/widgets/gesture_help.dart';
 import 'package:flutter_hbb/models/chat_model.dart';
 import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
@@ -16,6 +17,7 @@ import '../../common/widgets/remote_input.dart';
 import '../../models/input_model.dart';
 import '../../models/model.dart';
 import '../../models/platform_model.dart';
+import '../../utils/image.dart';
 import '../widgets/dialog.dart';
 import '../widgets/gestures.dart';
 
@@ -227,13 +229,18 @@ class _RemotePageState extends State<RemotePage> {
         return false;
       },
       child: getRawPointerAndKeyBody(Scaffold(
-          // resizeToAvoidBottomInset: true,
+          // workaround for https://github.com/rustdesk/rustdesk/issues/3131
+          floatingActionButtonLocation: hideKeyboard
+              ? FABLocation(FloatingActionButtonLocation.endFloat, 0, -35)
+              : null,
           floatingActionButton: !showActionButton
               ? null
               : FloatingActionButton(
                   mini: !hideKeyboard,
                   child: Icon(
-                      hideKeyboard ? Icons.expand_more : Icons.expand_less),
+                    hideKeyboard ? Icons.expand_more : Icons.expand_less,
+                    color: Colors.white,
+                  ),
                   backgroundColor: MyTheme.accent,
                   onPressed: () {
                     setState(() {
@@ -493,38 +500,49 @@ class _RemotePageState extends State<RemotePage> {
   Widget getBodyForMobile() {
     return Container(
         color: MyTheme.canvasColor,
-        child: Stack(children: [
-          ImagePaint(),
-          CursorPaint(),
-          QualityMonitor(gFFI.qualityMonitorModel),
-          getHelpTools(),
-          SizedBox(
-            width: 0,
-            height: 0,
-            child: !_showEdit
-                ? Container()
-                : TextFormField(
-                    textInputAction: TextInputAction.newline,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    autofocus: true,
-                    focusNode: _mobileFocusNode,
-                    maxLines: null,
-                    initialValue: _value,
-                    // trick way to make backspace work always
-                    keyboardType: TextInputType.multiline,
-                    onChanged: handleSoftKeyboardInput,
-                  ),
-          ),
-        ]));
+        child: Stack(children: () {
+          final paints = [
+            ImagePaint(),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: QualityMonitor(gFFI.qualityMonitorModel),
+            ),
+            getHelpTools(),
+            SizedBox(
+              width: 0,
+              height: 0,
+              child: !_showEdit
+                  ? Container()
+                  : TextFormField(
+                      textInputAction: TextInputAction.newline,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      autofocus: true,
+                      focusNode: _mobileFocusNode,
+                      maxLines: null,
+                      initialValue: _value,
+                      // trick way to make backspace work always
+                      keyboardType: TextInputType.multiline,
+                      onChanged: handleSoftKeyboardInput,
+                    ),
+            ),
+          ];
+          if (!gFFI.canvasModel.cursorEmbedded) {
+            paints.add(CursorPaint());
+          }
+          return paints;
+        }()));
   }
 
   Widget getBodyForDesktopWithListener(bool keyboard) {
     var paints = <Widget>[ImagePaint()];
-    final cursor = bind.sessionGetToggleOptionSync(
-        id: widget.id, arg: 'show-remote-cursor');
-    if (keyboard || cursor) {
-      paints.add(CursorPaint());
+    if (!gFFI.canvasModel.cursorEmbedded) {
+      final cursor = bind.sessionGetToggleOptionSync(
+          id: widget.id, arg: 'show-remote-cursor');
+      if (keyboard || cursor) {
+        paints.add(CursorPaint());
+      }
     }
     return Container(
         color: MyTheme.canvasColor, child: Stack(children: paints));
@@ -563,17 +581,18 @@ class _RemotePageState extends State<RemotePage> {
           child: Text(translate('Reset canvas')), value: 'reset_canvas'));
     }
     if (perms['keyboard'] != false) {
-      more.add(PopupMenuItem<String>(
-          child: Text(translate('Physical Keyboard Input Mode')),
-          value: 'input-mode'));
-      if (pi.platform == 'Linux' || pi.sasEnabled) {
+      // * Currently mobile does not enable map mode
+      // more.add(PopupMenuItem<String>(
+      //     child: Text(translate('Physical Keyboard Input Mode')),
+      //     value: 'input-mode'));
+      if (pi.platform == kPeerPlatformLinux || pi.sasEnabled) {
         more.add(PopupMenuItem<String>(
             child: Text('${translate('Insert')} Ctrl + Alt + Del'),
             value: 'cad'));
       }
       more.add(PopupMenuItem<String>(
           child: Text(translate('Insert Lock')), value: 'lock'));
-      if (pi.platform == 'Windows' &&
+      if (pi.platform == kPeerPlatformWindows &&
           await bind.sessionGetToggleOption(id: id, arg: 'privacy-mode') !=
               true) {
         more.add(PopupMenuItem<String>(
@@ -583,9 +602,9 @@ class _RemotePageState extends State<RemotePage> {
       }
     }
     if (perms["restart"] != false &&
-        (pi.platform == "Linux" ||
-            pi.platform == "Windows" ||
-            pi.platform == "Mac OS")) {
+        (pi.platform == kPeerPlatformLinux ||
+            pi.platform == kPeerPlatformWindows ||
+            pi.platform == kPeerPlatformMacOS)) {
       more.add(PopupMenuItem<String>(
           child: Text(translate('Restart Remote Device')), value: 'restart'));
     }
@@ -620,8 +639,9 @@ class _RemotePageState extends State<RemotePage> {
       );
       if (value == 'cad') {
         bind.sessionCtrlAltDel(id: widget.id);
-      } else if (value == 'input-mode') {
-        changePhysicalKeyboardInputMode();
+        // * Currently mobile does not enable map mode
+        // } else if (value == 'input-mode') {
+        //   changePhysicalKeyboardInputMode();
       } else if (value == 'lock') {
         bind.sessionLockScreen(id: widget.id);
       } else if (value == 'block-input') {
@@ -642,7 +662,7 @@ class _RemotePageState extends State<RemotePage> {
         // FIXME:
         // null means no session of id
         // empty string means no password
-        var password = await bind.sessionGetOption(id: id, arg: "os-password");
+        var password = await bind.sessionGetOption(id: id, arg: 'os-password');
         if (password != null) {
           bind.sessionInputOsPassword(id: widget.id, value: password);
         } else {
@@ -683,25 +703,26 @@ class _RemotePageState extends State<RemotePage> {
             }));
   }
 
-  void changePhysicalKeyboardInputMode() async {
-    var current = await bind.sessionGetKeyboardName(id: widget.id);
-    gFFI.dialogManager.show((setState, close) {
-      void setMode(String? v) async {
-        await bind.sessionSetKeyboardMode(id: widget.id, keyboardMode: v ?? '');
-        setState(() => current = v ?? '');
-        Future.delayed(Duration(milliseconds: 300), close);
-      }
-
-      return CustomAlertDialog(
-          title: Text(translate('Physical Keyboard Input Mode')),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            getRadio('Legacy mode', 'legacy', current, setMode,
-                contentPadding: EdgeInsets.zero),
-            getRadio('Map mode', 'map', current, setMode,
-                contentPadding: EdgeInsets.zero),
-          ]));
-    }, clickMaskDismiss: true);
-  }
+  // * Currently mobile does not enable map mode
+  // void changePhysicalKeyboardInputMode() async {
+  //   var current = await bind.sessionGetKeyboardMode(id: widget.id) ?? "legacy";
+  //   gFFI.dialogManager.show((setState, close) {
+  //     void setMode(String? v) async {
+  //       await bind.sessionSetKeyboardMode(id: widget.id, value: v ?? "");
+  //       setState(() => current = v ?? '');
+  //       Future.delayed(Duration(milliseconds: 300), close);
+  //     }
+  //
+  //     return CustomAlertDialog(
+  //         title: Text(translate('Physical Keyboard Input Mode')),
+  //         content: Column(mainAxisSize: MainAxisSize.min, children: [
+  //           getRadio('Legacy mode', 'legacy', current, setMode,
+  //               contentPadding: EdgeInsets.zero),
+  //           getRadio('Map mode', 'map', current, setMode,
+  //               contentPadding: EdgeInsets.zero),
+  //         ]));
+  //   }, clickMaskDismiss: true);
+  // }
 
   Widget getHelpTools() {
     final keyboard = isKeyboardShown();
@@ -731,7 +752,7 @@ class _RemotePageState extends State<RemotePage> {
     }
 
     final pi = gFFI.ffiModel.pi;
-    final isMac = pi.platform == "Mac OS";
+    final isMac = pi.platform == kPeerPlatformMacOS;
     final modifiers = <Widget>[
       wrap('Ctrl ', () {
         setState(() => inputModel.ctrl = !inputModel.ctrl);
@@ -792,6 +813,9 @@ class _RemotePageState extends State<RemotePage> {
       }),
       wrap('End', () {
         inputModel.inputKey('VK_END');
+      }),
+      wrap('Ins', () {
+        inputModel.inputKey('VK_INSERT');
       }),
       wrap('Del', () {
         inputModel.inputKey('VK_DELETE');
@@ -865,14 +889,14 @@ class CursorPaint extends StatelessWidget {
     double hotx = m.hotx;
     double hoty = m.hoty;
     if (m.image == null) {
-      if (m.defaultCache != null) {
-        hotx = m.defaultImage!.width / 2;
-        hoty = m.defaultImage!.height / 2;
+      if (preDefaultCursor.image != null) {
+        hotx = preDefaultCursor.image!.width / 2;
+        hoty = preDefaultCursor.image!.height / 2;
       }
     }
     return CustomPaint(
       painter: ImagePainter(
-          image: m.image ?? m.defaultImage,
+          image: m.image ?? preDefaultCursor.image,
           x: m.x * s - hotx * s + c.x,
           y: m.y * s - hoty * s + c.y - adjust,
           scale: 1),
@@ -880,41 +904,15 @@ class CursorPaint extends StatelessWidget {
   }
 }
 
-class ImagePainter extends CustomPainter {
-  ImagePainter({
-    required this.image,
-    required this.x,
-    required this.y,
-    required this.scale,
-  });
-
-  ui.Image? image;
-  double x;
-  double y;
-  double scale;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (image == null) return;
-    canvas.scale(scale, scale);
-    canvas.drawImage(image!, Offset(x, y), Paint());
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) {
-    return oldDelegate != this;
-  }
-}
-
 void showOptions(
     BuildContext context, String id, OverlayDialogManager dialogManager) async {
-  String quality = await bind.sessionGetImageQuality(id: id) ?? 'balanced';
-  if (quality == '') quality = 'balanced';
+  String quality =
+      await bind.sessionGetImageQuality(id: id) ?? kRemoteImageQualityBalanced;
+  if (quality == '') quality = kRemoteImageQualityBalanced;
   String codec =
       await bind.sessionGetOption(id: id, arg: 'codec-preference') ?? 'auto';
   if (codec == '') codec = 'auto';
-  String viewStyle =
-      await bind.sessionGetOption(id: id, arg: 'view-style') ?? '';
+  String viewStyle = await bind.sessionGetViewStyle(id: id) ?? '';
 
   var displays = <Widget>[];
   final pi = gFFI.ffiModel.pi;
@@ -969,7 +967,9 @@ void showOptions(
       final h265 = codecsJson['h265'] ?? false;
       codecs.add(h264);
       codecs.add(h265);
-    } finally {}
+    } catch (e) {
+      debugPrint("Show Codec Preference err=$e");
+    }
   }
 
   dialogManager.show((setState, close) {
@@ -984,7 +984,7 @@ void showOptions(
       }
       more.add(getToggle(
           id, setState, 'lock-after-session-end', 'Lock after session end'));
-      if (pi.platform == 'Windows') {
+      if (pi.platform == kPeerPlatformWindows) {
         more.add(getToggle(id, setState, 'privacy-mode', 'Privacy mode'));
       }
     }
@@ -1017,12 +1017,16 @@ void showOptions(
     }
 
     final radios = [
-      getRadio('Scale original', 'original', viewStyle, setViewStyle),
-      getRadio('Scale adaptive', 'adaptive', viewStyle, setViewStyle),
+      getRadio(
+          'Scale original', kRemoteViewStyleOriginal, viewStyle, setViewStyle),
+      getRadio(
+          'Scale adaptive', kRemoteViewStyleAdaptive, viewStyle, setViewStyle),
       const Divider(color: MyTheme.border),
-      getRadio('Good image quality', 'best', quality, setQuality),
-      getRadio('Balanced', 'balanced', quality, setQuality),
-      getRadio('Optimize reaction time', 'low', quality, setQuality),
+      getRadio(
+          'Good image quality', kRemoteImageQualityBest, quality, setQuality),
+      getRadio('Balanced', kRemoteImageQualityBalanced, quality, setQuality),
+      getRadio('Optimize reaction time', kRemoteImageQualityLow, quality,
+          setQuality),
       const Divider(color: MyTheme.border)
     ];
 
@@ -1041,9 +1045,12 @@ void showOptions(
     }
 
     final toggles = [
-      getToggle(id, setState, 'show-remote-cursor', 'Show remote cursor'),
       getToggle(id, setState, 'show-quality-monitor', 'Show quality monitor'),
     ];
+    if (!gFFI.canvasModel.cursorEmbedded) {
+      toggles.insert(0,
+          getToggle(id, setState, 'show-remote-cursor', 'Show remote cursor'));
+    }
 
     return CustomAlertDialog(
       content: Column(
@@ -1080,15 +1087,9 @@ void showSetOSPassword(
           ),
         ]),
         actions: [
-          TextButton(
-            style: flatButtonStyle,
-            onPressed: () {
-              close();
-            },
-            child: Text(translate('Cancel')),
-          ),
-          TextButton(
-            style: flatButtonStyle,
+          dialogButton('Cancel', onPressed: close, isOutline: true),
+          dialogButton(
+            'OK',
             onPressed: () {
               var text = controller.text.trim();
               bind.sessionPeerOption(id: id, name: "os-password", value: text);
@@ -1099,7 +1100,6 @@ void showSetOSPassword(
               }
               close();
             },
-            child: Text(translate('OK')),
           ),
         ]);
   });
@@ -1117,5 +1117,18 @@ void sendPrompt(bool isMac, String key) {
     gFFI.inputModel.command = old;
   } else {
     gFFI.inputModel.ctrl = old;
+  }
+}
+
+class FABLocation extends FloatingActionButtonLocation {
+  FloatingActionButtonLocation location;
+  double offsetX;
+  double offsetY;
+  FABLocation(this.location, this.offsetX, this.offsetY);
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry scaffoldGeometry) {
+    final offset = location.getOffset(scaffoldGeometry);
+    return Offset(offset.dx + offsetX, offset.dy + offsetY);
   }
 }

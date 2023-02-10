@@ -30,7 +30,12 @@ class _DesktopServerPageState extends State<DesktopServerPage>
   void initState() {
     gFFI.ffiModel.updateEventListener("");
     windowManager.addListener(this);
-    tabController.onRemoved = (_, id) => onRemoveId(id);
+    tabController.onRemoved = (_, id) {
+      onRemoveId(id);
+    };
+    tabController.onSelected = (_, id) {
+      windowManager.setTitle(getWindowNameWithId(id));
+    };
     super.initState();
   }
 
@@ -63,26 +68,19 @@ class _DesktopServerPageState extends State<DesktopServerPage>
         ],
         child: Consumer<ServerModel>(
             builder: (context, serverModel, child) => Container(
-                  decoration: BoxDecoration(
-                      border:
-                          Border.all(color: MyTheme.color(context).border!)),
-                  child: Overlay(initialEntries: [
-                    OverlayEntry(builder: (context) {
-                      gFFI.dialogManager.setOverlayState(Overlay.of(context));
-                      return Scaffold(
-                        backgroundColor: Theme.of(context).backgroundColor,
-                        body: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            children: [
-                              Expanded(child: ConnectionManager()),
-                            ],
-                          ),
-                        ),
-                      );
-                    })
-                  ]),
-                )));
+                decoration: BoxDecoration(
+                    border: Border.all(color: MyTheme.color(context).border!)),
+                child: Scaffold(
+                  backgroundColor: Theme.of(context).backgroundColor,
+                  body: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        Expanded(child: ConnectionManager()),
+                      ],
+                    ),
+                  ),
+                ))));
   }
 
   @override
@@ -107,13 +105,14 @@ class ConnectionManagerState extends State<ConnectionManager> {
   @override
   Widget build(BuildContext context) {
     final serverModel = Provider.of<ServerModel>(context);
-    final pointerHandler = serverModel.cmHiddenTimer != null
-        ? (PointerEvent e) {
-            serverModel.cmHiddenTimer!.cancel();
-            serverModel.cmHiddenTimer = null;
-            debugPrint("CM hidden timer has been canceled");
-          }
-        : null;
+    pointerHandler(PointerEvent e) {
+      if (serverModel.cmHiddenTimer != null) {
+        serverModel.cmHiddenTimer!.cancel();
+        serverModel.cmHiddenTimer = null;
+        debugPrint("CM hidden timer has been canceled");
+      }
+    }
+
     return serverModel.clients.isEmpty
         ? Column(
             children: [
@@ -237,7 +236,7 @@ Widget buildConnectionCard(Client client) {
             key: ValueKey(client.id),
             children: [
               _CmHeader(client: client),
-              client.isFileTransfer || client.disconnected
+              client.type_() != ClientType.remote || client.disconnected
                   ? Offstage()
                   : _PrivilegeBoard(client: client),
               Expanded(
@@ -375,7 +374,7 @@ class _CmHeaderState extends State<_CmHeader>
           ),
         ),
         Offstage(
-          offstage: !client.authorized || client.isFileTransfer,
+          offstage: !client.authorized || client.type_() != ClientType.remote,
           child: IconButton(
               onPressed: () => checkClickTime(
                   client.id, () => gFFI.chatModel.toggleCMChatPage(client.id)),
@@ -509,10 +508,54 @@ class _CmControlPanel extends StatelessWidget {
   buildAuthorized(BuildContext context) {
     final bool canElevate = bind.cmCanElevate();
     final model = Provider.of<ServerModel>(context);
-    final showElevation = canElevate && model.showElevation;
+    final showElevation = canElevate &&
+        model.showElevation &&
+        client.type_() == ClientType.remote;
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
+        Offstage(
+          offstage: !client.inVoiceCall,
+          child: buildButton(context,
+              color: Colors.red,
+              onClick: () => closeVoiceCall(),
+              icon: Icon(Icons.phone_disabled_rounded, color: Colors.white),
+              text: "Stop voice call",
+              textColor: Colors.white),
+        ),
+        Offstage(
+          offstage: !client.incomingVoiceCall,
+          child: Row(
+            children: [
+              Expanded(
+                child: buildButton(context,
+                    color: MyTheme.accent,
+                    onClick: () => handleVoiceCall(true),
+                    icon: Icon(Icons.phone_enabled, color: Colors.white),
+                    text: "Accept",
+                    textColor: Colors.white),
+              ),
+              Expanded(
+                child: buildButton(context,
+                    color: Colors.red,
+                    onClick: () => handleVoiceCall(false),
+                    icon:
+                        Icon(Icons.phone_disabled_rounded, color: Colors.white),
+                    text: "Dismiss",
+                    textColor: Colors.white),
+              )
+            ],
+          ),
+        ),
+        Offstage(
+          offstage: !client.fromSwitch,
+          child: buildButton(context,
+              color: Colors.purple,
+              onClick: () => handleSwitchBack(context),
+              icon: Icon(Icons.reply, color: Colors.white),
+              text: "Switch Sides",
+              textColor: Colors.white),
+        ),
         Offstage(
           offstage: !showElevation,
           child: buildButton(context, color: Colors.green[700], onClick: () {
@@ -559,7 +602,9 @@ class _CmControlPanel extends StatelessWidget {
   buildUnAuthorized(BuildContext context) {
     final bool canElevate = bind.cmCanElevate();
     final model = Provider.of<ServerModel>(context);
-    final showElevation = canElevate && model.showElevation;
+    final showElevation = canElevate &&
+        model.showElevation &&
+        client.type_() == ClientType.remote;
     final showAccept = model.approveMode != 'password';
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
@@ -607,7 +652,7 @@ class _CmControlPanel extends StatelessWidget {
         .marginSymmetric(horizontal: showElevation ? 0 : bigMargin);
   }
 
-  buildButton(
+  Widget buildButton(
     BuildContext context, {
     required Color? color,
     required Function() onClick,
@@ -668,6 +713,18 @@ class _CmControlPanel extends StatelessWidget {
     if (await bind.cmGetClientsLength() == 0) {
       windowManager.close();
     }
+  }
+
+  void handleSwitchBack(BuildContext context) {
+    bind.cmSwitchBack(connId: client.id);
+  }
+
+  void handleVoiceCall(bool accept) {
+    bind.cmHandleIncomingVoiceCall(id: client.id, accept: accept);
+  }
+
+  void closeVoiceCall() {
+    bind.cmCloseVoiceCall(id: client.id);
   }
 }
 

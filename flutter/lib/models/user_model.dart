@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:flutter_hbb/common/hbbs/hbbs.dart';
+import 'package:flutter_hbb/common/widgets/peer_tab_page.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 
@@ -10,7 +11,9 @@ import 'model.dart';
 import 'platform_model.dart';
 
 class UserModel {
-  var userName = ''.obs;
+  final RxString userName = ''.obs;
+  final RxString groupName = ''.obs;
+  final RxBool isAdmin = false.obs;
   WeakReference<FFI> parent;
 
   UserModel(this.parent) {
@@ -23,9 +26,11 @@ class UserModel {
   }
 
   void refreshCurrentUser() async {
-    await getUserName();
     final token = bind.mainGetLocalOption(key: 'access_token');
-    if (token == '') return;
+    if (token == '') {
+      await _updateOtherModels();
+      return;
+    }
     final url = await bind.mainGetApiServer();
     final body = {
       'uuid': await bind.mainGetUuid(),
@@ -40,7 +45,7 @@ class UserModel {
           body: json.encode(body));
       final status = response.statusCode;
       if (status == 401 || status == 400) {
-        resetToken();
+        reset();
         return;
       }
       debugPrint(response.body);
@@ -48,13 +53,18 @@ class UserModel {
       await _parseResp(response.body);
     } catch (e) {
       print('Failed to refreshCurrentUser: $e');
+    } finally {
+      await _updateOtherModels();
     }
   }
 
-  void resetToken() async {
+  Future<void> reset() async {
     await bind.mainSetLocalOption(key: 'access_token', value: '');
-    await bind.mainSetLocalOption(key: 'user_info', value: '');
+    await gFFI.abModel.reset();
+    await gFFI.groupModel.reset();
     userName.value = '';
+    groupName.value = '';
+    gFFI.peerTabModel.check_dynamic_tabs();
   }
 
   Future<String> _parseResp(dynamic body) async {
@@ -87,43 +97,35 @@ class UserModel {
     return '';
   }
 
-  Future<String> getUserName() async {
-    if (userName.isNotEmpty) {
-      return userName.value;
-    }
-    final userInfo = bind.mainGetLocalOption(key: 'user_info');
-    if (userInfo.trim().isEmpty) {
-      return '';
-    }
-    final m = jsonDecode(userInfo);
-    if (m == null) {
-      userName.value = '';
-    } else {
-      userName.value = m['name'] ?? '';
-    }
-    return userName.value;
+  Future<void> _updateOtherModels() async {
+    await gFFI.abModel.pullAb();
+    await gFFI.groupModel.pull();
   }
 
   Future<void> logOut() async {
     final tag = gFFI.dialogManager.showLoading(translate('Waiting'));
-    final url = await bind.mainGetApiServer();
-    final _ = await http.post(Uri.parse('$url/api/logout'),
-        body: {
-          'id': await bind.mainGetMyId(),
-          'uuid': await bind.mainGetUuid(),
-        },
-        headers: await getHttpHeaders());
-    await Future.wait([
-      bind.mainSetLocalOption(key: 'access_token', value: ''),
-      bind.mainSetLocalOption(key: 'user_info', value: ''),
-      bind.mainSetLocalOption(key: 'selected-tags', value: ''),
-    ]);
-    parent.target?.abModel.clear();
-    userName.value = '';
-    gFFI.dialogManager.dismissByTag(tag);
+    try {
+      final url = await bind.mainGetApiServer();
+      final authHeaders = getHttpHeaders();
+      authHeaders['Content-Type'] = "application/json";
+      await http
+          .post(Uri.parse('$url/api/logout'),
+              body: jsonEncode({
+                'id': await bind.mainGetMyId(),
+                'uuid': await bind.mainGetUuid(),
+              }),
+              headers: authHeaders)
+          .timeout(Duration(seconds: 2));
+    } catch (e) {
+      print("request /api/logout failed: err=$e");
+    } finally {
+      await reset();
+      gFFI.dialogManager.dismissByTag(tag);
+    }
   }
 
-  Future<Map<String, dynamic>> login(String userName, String pass) async {
+  /// throw [RequestException]
+  Future<LoginResponse> login(LoginRequest loginRequest) async {
     final url = await bind.mainGetApiServer();
     try {
       final resp = await http.post(Uri.parse('$url/api/login'),
@@ -146,5 +148,7 @@ class UserModel {
     } catch (err) {
       return {'error': '$err'};
     }
+
+    return loginResponse;
   }
 }

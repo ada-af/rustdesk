@@ -4,6 +4,7 @@ use hbb_common::{allow_err, bail, log};
 use libc::{c_char, c_int, c_void};
 use std::{
     cell::RefCell,
+    collections::HashMap,
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -179,7 +180,8 @@ fn set_x11_env(uid: &str) {
     log::info!("uid of seat0: {}", uid);
     let gdm = format!("/run/user/{}/gdm/Xauthority", uid);
     let mut auth = get_env_tries("XAUTHORITY", uid, 10);
-    if auth.is_empty() {
+    // auth is another user's when uid = 0, https://github.com/rustdesk/rustdesk/issues/2468
+    if auth.is_empty() || uid == "0" {
         auth = if std::path::Path::new(&gdm).exists() {
             gdm
         } else {
@@ -324,7 +326,7 @@ pub fn start_os_service() {
                 ) {
                     stop_rustdesk_servers();
                     std::thread::sleep(std::time::Duration::from_millis(super::SERVICE_INTERVAL));
-                    match run_as_user("--server", Some((cur_uid, cur_user))) {
+                    match run_as_user(vec!["--server"], Some((cur_uid, cur_user))) {
                         Ok(ps) => user_server = ps,
                         Err(err) => {
                             log::error!("Failed to start server: {}", err);
@@ -416,110 +418,17 @@ fn get_display() -> String {
 
 pub fn is_login_wayland() -> bool {
     if let Ok(contents) = std::fs::read_to_string("/etc/gdm3/custom.conf") {
-        contents.contains("#WaylandEnable=false")
+        contents.contains("#WaylandEnable=false") || contents.contains("WaylandEnable=true")
     } else if let Ok(contents) = std::fs::read_to_string("/etc/gdm/custom.conf") {
-        contents.contains("#WaylandEnable=false")
+        contents.contains("#WaylandEnable=false") || contents.contains("WaylandEnable=true")
     } else {
         false
-    }
-}
-
-pub fn fix_login_wayland() {
-    let mut file = "/etc/gdm3/custom.conf".to_owned();
-    if !std::path::Path::new(&file).exists() {
-        file = "/etc/gdm/custom.conf".to_owned();
-    }
-    match std::process::Command::new("pkexec")
-        .args(vec![
-            "sed",
-            "-i",
-            "s/#WaylandEnable=false/WaylandEnable=false/g",
-            &file,
-        ])
-        .output()
-    {
-        Ok(x) => {
-            let x = String::from_utf8_lossy(&x.stderr);
-            if !x.is_empty() {
-                log::error!("fix_login_wayland failed: {}", x);
-            }
-        }
-        Err(err) => {
-            log::error!("fix_login_wayland failed: {}", err);
-        }
     }
 }
 
 pub fn current_is_wayland() -> bool {
     let dtype = get_display_server();
     return "wayland" == dtype && unsafe { UNMODIFIED };
-}
-
-pub fn modify_default_login() -> String {
-    let dsession = std::env::var("DESKTOP_SESSION").unwrap();
-    let user_name = std::env::var("USERNAME").unwrap();
-    if let Ok(x) = run_cmds("ls /usr/share/* | grep ${DESKTOP_SESSION}-xorg.desktop".to_owned()) {
-        if x.trim_end().to_string() != "" {
-            match std::process::Command::new("pkexec")
-                .args(vec![
-                    "sed",
-                    "-i",
-                    &format!("s/={0}$/={0}-xorg/g", &dsession),
-                    &format!("/var/lib/AccountsService/users/{}", &user_name),
-                ])
-                .output()
-            {
-                Ok(x) => {
-                    let x = String::from_utf8_lossy(&x.stderr);
-                    if !x.is_empty() {
-                        log::error!("modify_default_login failed: {}", x);
-                        return "Fix failed! Please re-login with X server manually".to_owned();
-                    } else {
-                        unsafe {
-                            UNMODIFIED = false;
-                        }
-                        return "".to_owned();
-                    }
-                }
-                Err(err) => {
-                    log::error!("modify_default_login failed: {}", err);
-                    return "Fix failed! Please re-login with X server manually".to_owned();
-                }
-            }
-        } else if let Ok(z) =
-            run_cmds("ls /usr/share/* | grep ${DESKTOP_SESSION:0:-8}.desktop".to_owned())
-        {
-            if z.trim_end().to_string() != "" {
-                match std::process::Command::new("pkexec")
-                    .args(vec![
-                        "sed",
-                        "-i",
-                        &format!("s/={}$/={}/g", &dsession, &dsession[..dsession.len() - 8]),
-                        &format!("/var/lib/AccountsService/users/{}", &user_name),
-                    ])
-                    .output()
-                {
-                    Ok(x) => {
-                        let x = String::from_utf8_lossy(&x.stderr);
-                        if !x.is_empty() {
-                            log::error!("modify_default_login failed: {}", x);
-                            return "Fix failed! Please re-login with X server manually".to_owned();
-                        } else {
-                            unsafe {
-                                UNMODIFIED = false;
-                            }
-                            return "".to_owned();
-                        }
-                    }
-                    Err(err) => {
-                        log::error!("modify_default_login failed: {}", err);
-                        return "Fix failed! Please re-login with X server manually".to_owned();
-                    }
-                }
-            }
-        }
-    }
-    return "Fix failed! Please re-login with X server manually".to_owned();
 }
 
 // to-do: test the other display manager
@@ -566,7 +475,7 @@ fn is_opensuse() -> bool {
 }
 
 pub fn run_as_user(
-    arg: &str,
+    arg: Vec<&str>,
     user: Option<(String, String)>,
 ) -> ResultType<Option<std::process::Child>> {
     let (uid, username) = match user {
@@ -575,7 +484,8 @@ pub fn run_as_user(
     };
     let cmd = std::env::current_exe()?;
     let xdg = &format!("XDG_RUNTIME_DIR=/run/user/{}", uid) as &str;
-    let mut args = vec![xdg, "-u", &username, cmd.to_str().unwrap_or(""), arg];
+    let mut args = vec![xdg, "-u", &username, cmd.to_str().unwrap_or("")];
+    args.append(&mut arg.clone());
     // -E required for opensuse
     if is_opensuse() {
         args.insert(0, "-E");
@@ -622,6 +532,24 @@ pub fn get_pa_sources() -> Vec<(String, String)> {
         }
     }
     out
+}
+
+pub fn get_default_pa_source() -> Option<(String, String)> {
+    use pulsectl::controllers::*;
+    match SourceController::create() {
+        Ok(mut handler) => {
+            if let Ok(dev) = handler.get_default_device() {
+                return Some((
+                    dev.name.unwrap_or("".to_owned()),
+                    dev.description.unwrap_or("".to_owned()),
+                ));
+            }
+        }
+        Err(err) => {
+            log::error!("Failed to get_pa_source: {:?}", err);
+        }
+    }
+    None
 }
 
 pub fn lock_screen() {
@@ -704,13 +632,96 @@ pub fn get_double_click_time() -> u32 {
     unsafe {
         let mut double_click_time = 0u32;
         let property = std::ffi::CString::new("gtk-double-click-time").unwrap();
-        let setings = gtk_settings_get_default();
+        let settings = gtk_settings_get_default();
         g_object_get(
-            setings,
+            settings,
             property.as_ptr(),
             &mut double_click_time as *mut u32,
             0 as *const libc::c_void,
         );
         double_click_time
+    }
+}
+
+/// forever: may not work
+pub fn system_message(title: &str, msg: &str, forever: bool) -> ResultType<()> {
+    let cmds: HashMap<&str, Vec<&str>> = HashMap::from([
+        ("notify-send", [title, msg].to_vec()),
+        (
+            "zenity",
+            [
+                "--info",
+                "--timeout",
+                if forever { "0" } else { "3" },
+                "--title",
+                title,
+                "--text",
+                msg,
+            ]
+            .to_vec(),
+        ),
+        ("kdialog", ["--title", title, "--msgbox", msg].to_vec()),
+        (
+            "xmessage",
+            [
+                "-center",
+                "-timeout",
+                if forever { "0" } else { "3" },
+                title,
+                msg,
+            ]
+            .to_vec(),
+        ),
+    ]);
+    for (k, v) in cmds {
+        if std::process::Command::new(k).args(v).spawn().is_ok() {
+            return Ok(());
+        }
+    }
+    bail!("failed to post system message");
+}
+
+extern "C" fn breakdown_signal_handler(sig: i32) {
+    let mut stack = vec![];
+    backtrace::trace(|frame| {
+        backtrace::resolve_frame(frame, |symbol| {
+            if let Some(name) = symbol.name() {
+                stack.push(name.to_string());
+            }
+        });
+        true // keep going to the next frame
+    });
+    let mut info = String::default();
+    if stack.iter().any(|s| {
+        s.contains(&"nouveau_pushbuf_kick")
+            || s.to_lowercase().contains("nvidia")
+            || s.contains("gdk_window_end_draw_frame")
+    }) {
+        hbb_common::config::Config::set_option(
+            "allow-always-software-render".to_string(),
+            "Y".to_string(),
+        );
+        info = "Always use software rendering will be set.".to_string();
+        log::info!("{}", info);
+    }
+    log::error!(
+        "Got signal {} and exit. stack:\n{}",
+        sig,
+        stack.join("\n").to_string()
+    );
+    if !info.is_empty() {
+        system_message(
+            "RustDesk",
+            &format!("Got signal {} and exit.{}", sig, info),
+            true,
+        )
+        .ok();
+    }
+    std::process::exit(0);
+}
+
+pub fn register_breakdown_handler() {
+    unsafe {
+        libc::signal(libc::SIGSEGV, breakdown_signal_handler as _);
     }
 }

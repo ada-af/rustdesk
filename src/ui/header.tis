@@ -164,6 +164,13 @@ class Header: Reactor.Component {
         var codecs = handler.supported_hwcodec();
         var show_codec = handler.has_hwcodec() && (codecs[0] || codecs[1]);
 
+        var cursor_embedded = false;
+        if ((pi.displays || []).length > 0) {
+            if (pi.displays.length > pi.current_display) {
+                cursor_embedded = pi.displays[pi.current_display].cursor_embedded;
+            }
+        }
+
         return <popup>
             <menu.context #display-options>
                 <li #adjust-window style="display:none">{translate('Adjust Window')}</li> 
@@ -184,7 +191,7 @@ class Header: Reactor.Component {
                 {codecs[1] ? <li #h265 type="codec-preference"><span>{svg_checkmark}</span>H265</li> : ""}
                 </div> : ""}
                 <div .separator />
-                <li #show-remote-cursor .toggle-option><span>{svg_checkmark}</span>{translate('Show remote cursor')}</li> 
+                {!cursor_embedded && <li #show-remote-cursor .toggle-option><span>{svg_checkmark}</span>{translate('Show remote cursor')}</li>}
                 <li #show-quality-monitor .toggle-option><span>{svg_checkmark}</span>{translate('Show quality monitor')}</li> 
                 {audio_enabled ? <li #disable-audio .toggle-option><span>{svg_checkmark}</span>{translate('Mute')}</li> : ""}
                 {is_win && pi.platform == 'Windows' && file_enabled ? <li #enable-file-transfer .toggle-option><span>{svg_checkmark}</span>{translate('Allow file copy and paste')}</li> : ""}
@@ -201,7 +208,7 @@ class Header: Reactor.Component {
                 {keyboard_enabled ? <li #os-password>{translate('OS Password')}<EditOsPassword /></li> : ""}
                 <li #transfer-file>{translate('Transfer File')}</li> 
                 <li #tunnel>{translate('TCP Tunneling')}</li> 
-                {handler.get_audit_server() && <li #note>{translate('Note')}</li>}
+                {handler.get_audit_server("conn") && <li #note>{translate('Note')}</li>}
                 <div .separator />
                 {keyboard_enabled && (pi.platform == "Linux" || pi.sas_enabled) ? <li #ctrl-alt-del>{translate('Insert')} Ctrl + Alt + Del</li> : ""}
                 {restart_enabled && (pi.platform == "Linux" || pi.platform == "Windows" || pi.platform == "Mac OS") ? <li #restart_remote_device>{translate('Restart Remote Device')}</li> : ""}
@@ -371,7 +378,7 @@ class Header: Reactor.Component {
             togglePrivacyMode(me.id);
         } else if (me.id == "show-quality-monitor") {
             toggleQualityMonitor(me.id);
-        }else if (me.attributes.hasClass("toggle-option")) {
+        } else if (me.attributes.hasClass("toggle-option")) {
             handler.toggle_option(me.id);
             toggleMenuState();
         } else if (!me.attributes.hasClass("selected")) {
@@ -427,6 +434,9 @@ function toggleMenuState() {
     var c = handler.get_option("codec-preference");
     if (!c) c = "auto";
     values.push(c);
+    var a = handler.get_audio_mode();
+    if (!a) a = "guest-to-host";
+    values.push(a);
     for (var el in $$(menu#display-options li)) {
         el.attributes.toggleClass("selected", values.indexOf(el.id) >= 0);
     }

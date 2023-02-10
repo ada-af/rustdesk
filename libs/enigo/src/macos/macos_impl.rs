@@ -40,6 +40,7 @@ const BUF_LEN: usize = 4;
 #[allow(improper_ctypes)]
 #[allow(non_snake_case)]
 #[link(name = "ApplicationServices", kind = "framework")]
+#[link(name = "Carbon", kind = "framework")]
 extern "C" {
     fn CFDataGetBytePtr(theData: CFDataRef) -> *const u8;
     fn TISCopyCurrentKeyboardInputSource() -> TISInputSourceRef;
@@ -68,7 +69,7 @@ extern "C" {
     ) -> Boolean;
 
     fn CGEventPost(tapLocation: CGEventTapLocation, event: *mut MyCGEvent);
-    // Actually return CFDataRef which is const here, but for coding convienence, return *mut c_void
+    // Actually return CFDataRef which is const here, but for coding convenience, return *mut c_void
     fn TISGetInputSourceProperty(source: TISInputSourceRef, property: *const c_void)
         -> *mut c_void;
     // not present in servo/core-graphics
@@ -163,6 +164,14 @@ impl Default for Enigo {
 }
 
 impl MouseControllable for Enigo {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn mouse_move_to(&mut self, x: i32, y: i32) {
         let pressed = Self::pressed_buttons();
 
@@ -217,7 +226,10 @@ impl MouseControllable for Enigo {
             MouseButton::Left => (CGMouseButton::Left, CGEventType::LeftMouseDown),
             MouseButton::Middle => (CGMouseButton::Center, CGEventType::OtherMouseDown),
             MouseButton::Right => (CGMouseButton::Right, CGEventType::RightMouseDown),
-            _ => unimplemented!(),
+            _ => {
+                log::info!("Unsupported button {:?}", button);
+                return Ok(());
+            },
         };
         let dest = CGPoint::new(current_x as f64, current_y as f64);
         if let Some(src) = self.event_source.as_ref() {
@@ -240,7 +252,10 @@ impl MouseControllable for Enigo {
             MouseButton::Left => (CGMouseButton::Left, CGEventType::LeftMouseUp),
             MouseButton::Middle => (CGMouseButton::Center, CGEventType::OtherMouseUp),
             MouseButton::Right => (CGMouseButton::Right, CGEventType::RightMouseUp),
-            _ => unimplemented!(),
+            _ => {
+                log::info!("Unsupported button {:?}", button);
+                return;
+            },
         };
         let dest = CGPoint::new(current_x as f64, current_y as f64);
         if let Some(src) = self.event_source.as_ref() {
@@ -319,6 +334,14 @@ impl MouseControllable for Enigo {
 // com/questions/1918841/how-to-convert-ascii-character-to-cgkeycode
 
 impl KeyboardControllable for Enigo {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    
     fn key_sequence(&mut self, sequence: &str) {
         // NOTE(dustin): This is a fix for issue https://github.com/enigo-rs/enigo/issues/68
         // TODO(dustin): This could be improved by aggregating 20 bytes worth of graphemes at a time

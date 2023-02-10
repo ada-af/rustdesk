@@ -1,25 +1,37 @@
-import 'package:flutter/material.dart';
 import 'dart:io';
 
-const double kDesktopRemoteTabBarHeight = 28.0;
+import 'package:flutter/material.dart';
+import 'package:flutter_hbb/common.dart';
 
-/// [kAppTypeMain] used by 'Desktop Main Page' , 'Mobile (Client and Server)' , 'Desktop CM Page', "Install Page"
+const double kDesktopRemoteTabBarHeight = 28.0;
+const int kMainWindowId = 0;
+
+const String kPeerPlatformWindows = "Windows";
+const String kPeerPlatformLinux = "Linux";
+const String kPeerPlatformMacOS = "Mac OS";
+const String kPeerPlatformAndroid = "Android";
+
+/// [kAppTypeMain] used by 'Desktop Main Page' , 'Mobile (Client and Server)', "Install Page"
 const String kAppTypeMain = "main";
+const String kAppTypeConnectionManager = "cm";
 const String kAppTypeDesktopRemote = "remote";
 const String kAppTypeDesktopFileTransfer = "file transfer";
 const String kAppTypeDesktopPortForward = "port forward";
 
+const String kWindowMainWindowOnTop = "main_window_on_top";
+const String kWindowGetWindowInfo = "get_window_info";
 const String kWindowActionRebuild = "rebuild";
 const String kWindowEventHide = "hide";
 const String kWindowEventShow = "show";
+const String kWindowConnect = "connect";
 
 const String kUniLinksPrefix = "rustdesk://";
-const String kActionNewConnection = "connection/new/";
 
 const String kTabLabelHomePage = "Home";
 const String kTabLabelSettingPage = "Settings";
 
 const String kWindowPrefix = "wm_";
+const int kWindowMainId = 0;
 
 // the executable name of the portable version
 const String kEnvPortableExecutable = "RUSTDESK_APPNAME";
@@ -69,6 +81,38 @@ const kMouseControlDistance = 12;
 
 /// [kMouseControlTimeoutMSec] indicates the timeout (in milliseconds) that self-side can get control of mouse.
 const kMouseControlTimeoutMSec = 1000;
+
+/// [kRemoteViewStyleOriginal] Show remote image without scaling.
+const kRemoteViewStyleOriginal = 'original';
+
+/// [kRemoteViewStyleAdaptive] Show remote image scaling by ratio factor.
+const kRemoteViewStyleAdaptive = 'adaptive';
+
+/// [kRemoteScrollStyleAuto] Scroll image auto by position.
+const kRemoteScrollStyleAuto = 'scrollauto';
+
+/// [kRemoteScrollStyleBar] Scroll image with scroll bar.
+const kRemoteScrollStyleBar = 'scrollbar';
+
+/// [kRemoteImageQualityBest] Best image quality.
+const kRemoteImageQualityBest = 'best';
+
+/// [kRemoteImageQualityBalanced] Balanced image quality, mid performance.
+const kRemoteImageQualityBalanced = 'balanced';
+
+/// [kRemoteImageQualityLow] Low image quality, better performance.
+const kRemoteImageQualityLow = 'low';
+
+/// [kRemoteImageQualityCustom] Custom image quality.
+const kRemoteImageQualityCustom = 'custom';
+
+/// [kRemoteAudioGuestToHost] Guest to host audio mode(default).
+const kRemoteAudioGuestToHost = 'guest-to-host';
+
+/// [kRemoteAudioDualWay] dual-way audio mode(default).
+const kRemoteAudioDualWay = 'dual-way';
+
+const kIgnoreDpi = true;
 
 /// flutter/packages/flutter/lib/src/services/keyboard_key.dart -> _keyLabels
 /// see [LogicalKeyboardKey.keyLabel]
@@ -299,3 +343,20 @@ const Map<int, String> physicalKeyMap = <int, String>{
   0x000c019e: 'LOCK_SCREEN',
   0x000c0208: 'VK_PRINT',
 };
+
+/// The windows targets in the publish time order.
+enum WindowsTarget {
+  naw, // not a windows target
+  xp,
+  vista,
+  w7,
+  w8,
+  w8_1,
+  w10,
+  w11
+}
+
+/// A convenient method to transform a build number to the corresponding windows version.
+extension WindowsTargetExt on int {
+  WindowsTarget get windowsVersion => getWindowsTarget(this);
+}

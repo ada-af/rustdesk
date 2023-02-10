@@ -14,6 +14,8 @@ struct _MyApplication {
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
+extern bool gIsConnectionManager;
+
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
@@ -21,7 +23,15 @@ static void my_application_activate(GApplication* application) {
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
   // we have custom window frame
   gtk_window_set_decorated(window, FALSE);
-
+  // try setting icon for rustdesk, which uses the system cache 
+  GtkIconTheme* theme = gtk_icon_theme_get_default();
+  gint icons[4] = {256, 128, 64, 32};
+  for (int i = 0; i < 4; i++) {
+    GdkPixbuf* icon = gtk_icon_theme_load_icon(theme, "rustdesk", icons[i], GTK_ICON_LOOKUP_NO_SVG, NULL);
+    if (icon != nullptr) {
+      gtk_window_set_icon(window, icon);
+    }
+  }
   // Use a header bar when running in GNOME as this is the common style used
   // by applications and is the setup most users will be using (e.g. Ubuntu
   // desktop).
@@ -51,7 +61,12 @@ static void my_application_activate(GApplication* application) {
 
   // auto bdw = bitsdojo_window_from(window); // <--- add this line
   // bdw->setCustomFrame(true);               // <-- add this line
-  gtk_window_set_default_size(window, 800, 600);   // <-- comment this line
+  int width = 800, height = 600;
+  if (gIsConnectionManager) {
+    width = 300;
+    height = 400;
+  }
+  gtk_window_set_default_size(window, width, height);   // <-- comment this line
   gtk_widget_show(GTK_WIDGET(window));
   gtk_widget_set_opacity(GTK_WIDGET(window), 0);
 
