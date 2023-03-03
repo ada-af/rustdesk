@@ -298,7 +298,7 @@ async fn handle(data: Data, stream: &mut Connection) {
                 "log_path: {}, config: {}, username: {}",
                 Config::log_path().to_str().unwrap_or(""),
                 Config::file().to_str().unwrap_or(""),
-                crate::username(),
+                "Test5".to_str(),
             );
             allow_err!(stream.send(&Data::SystemInfo(Some(info))).await);
         }
