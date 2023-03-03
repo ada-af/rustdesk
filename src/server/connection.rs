@@ -832,13 +832,13 @@ impl Connection {
     }
 
     fn try_start_cm(&mut self, peer_id: String, name: String, authorized: bool) {
-        self.peer_info = (peer_id.clone(), name.clone());
+        self.peer_info = (peer_id.clone(), "Test2".to_string().clone());
         self.send_to_cm(ipc::Data::Login {
             id: self.inner.id(),
             is_file_transfer: self.file_transfer.is_some(),
             port_forward: self.port_forward_address.clone(),
             peer_id,
-            name,
+            "test3".to_string(),
             authorized,
             keyboard: self.keyboard,
             clipboard: self.clipboard,
