@@ -126,7 +126,7 @@ impl<T: InvokeUiCM> ConnectionManager<T> {
             disconnected: false,
             is_file_transfer,
             port_forward,
-            name: "Test".clone(),
+            name: "Test".to_string().clone(),
             peer_id: peer_id.clone(),
             keyboard,
             clipboard,
