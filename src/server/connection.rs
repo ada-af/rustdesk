@@ -838,7 +838,7 @@ impl Connection {
             is_file_transfer: self.file_transfer.is_some(),
             port_forward: self.port_forward_address.clone(),
             peer_id,
-            "test3".to_string(),
+            name,
             authorized,
             keyboard: self.keyboard,
             clipboard: self.clipboard,
