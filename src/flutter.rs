@@ -440,7 +440,7 @@ pub mod connection_manager {
         //TODO port_forward
         fn add_connection(&self, client: &crate::ui_cm_interface::Client) {
             let client_json = serde_json::to_string(&client).unwrap_or("".into());
-            log::info!(client_json);
+            // log::info!(client_json);
             // send to Android service, active notification no matter UI is shown or not.
             #[cfg(any(target_os = "android"))]
             if let Err(e) =
