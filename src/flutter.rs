@@ -301,7 +301,7 @@ impl InvokeUiSession for FlutterHandler {
         self.push_event(
             "peer_info",
             vec![
-                ("username", &pi.username),
+                ("username", &pi.hostname),
                 ("hostname", &pi.hostname),
                 ("platform", &pi.platform),
                 ("sas_enabled", &pi.sas_enabled.to_string()),
