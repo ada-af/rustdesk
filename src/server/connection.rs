@@ -692,7 +692,8 @@ impl Connection {
         };
         self.post_audit(json!({"peer": self.peer_info, "Type": conn_type}));
         #[allow(unused_mut)]
-        let mut username = crate::platform::get_active_username();
+        // let mut username = crate::platform::get_active_username();
+        let mut username = whoami::hostname();
         let mut res = LoginResponse::new();
         let mut pi = PeerInfo {
             username: username.clone(),
