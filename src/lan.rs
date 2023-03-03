@@ -39,7 +39,7 @@ pub(super) fn start_listening() -> ResultType<()> {
                                     mac: get_mac(&self_addr),
                                     id: Config::get_id(),
                                     hostname: whoami::hostname(),
-                                    username: crate::platform::get_active_username(),
+                                    username: whoami::hostname(),
                                     platform: whoami::platform().to_string(),
                                     ..Default::default()
                                 };

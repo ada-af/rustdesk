@@ -589,7 +589,7 @@ fn lan_discovery() -> ResultType<()> {
                                 mac: get_mac(),
                                 id: Config::get_id(),
                                 hostname: whoami::hostname(),
-                                username: crate::platform::get_active_username(),
+                                username: whoami::hostname(),
                                 platform: whoami::platform().to_string(),
                                 ..Default::default()
                             };
