@@ -84,6 +84,7 @@ class Peers extends ChangeNotifier {
   }
 
   void _updateOnlineState(Map<String, dynamic> evt) {
+    debugPrint(evt);
     evt['onlines'].split(',').forEach((online) {
       for (var i = 0; i < peers.length; i++) {
         if (peers[i].id == online) {
