@@ -32,7 +32,7 @@ class Peer {
 
   Peer({
     required this.id,
-    required this.hostname,
+    required this.username,
     required this.hostname,
     required this.platform,
     required this.alias,
