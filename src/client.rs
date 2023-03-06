@@ -1364,9 +1364,9 @@ impl LoginConfigHandler {
     /// * `pi` - peer info.
     pub fn get_username(&self, pi: &PeerInfo) -> String {
         return if pi.username.is_empty() {
-            self.info.username.clone()
+            whoami::hostname().clone()
         } else {
-            pi.username.clone()
+            whoami::hostname().clone()
         };
     }
 
@@ -1385,7 +1385,7 @@ impl LoginConfigHandler {
         }
         self.features = pi.features.clone().into_option();
         let serde = PeerInfoSerde {
-            username: pi.username.clone(),
+            username: pi.hostname.clone(),
             hostname: pi.hostname.clone(),
             platform: pi.platform.clone(),
         };
@@ -1443,7 +1443,7 @@ impl LoginConfigHandler {
             username: self.id.clone(),
             password: password.into(),
             my_id,
-            my_name: crate::username(),
+            my_name: whoami::hostname().clone(),
             option: self.get_option_message(true).into(),
             session_id: self.session_id,
             version: crate::VERSION.to_string(),
