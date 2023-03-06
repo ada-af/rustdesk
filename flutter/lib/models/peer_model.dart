@@ -13,7 +13,7 @@ class Peer {
 
   Peer.fromJson(Map<String, dynamic> json)
       : id = json['id'] ?? '',
-        username = json['username'] ?? '',
+        username = json['hostname'] ?? '',
         hostname = json['hostname'] ?? '',
         platform = json['platform'] ?? '',
         alias = json['alias'] ?? '',
@@ -22,7 +22,7 @@ class Peer {
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       "id": id,
-      "username": username,
+      "username": hostname,
       "hostname": hostname,
       "platform": platform,
       "alias": alias,
@@ -32,7 +32,7 @@ class Peer {
 
   Peer({
     required this.id,
-    required this.username,
+    required this.hostname,
     required this.hostname,
     required this.platform,
     required this.alias,
