@@ -616,9 +616,6 @@ pub async fn query_online_states<F: FnOnce(Vec<String>, Vec<String>)>(ids: Vec<S
         let query_begin = Instant::now();
         let query_timeout = std::time::Duration::from_millis(3_000);
         loop {
-            if SHOULD_EXIT.load(Ordering::SeqCst) {
-                break;
-            }
             match query_online_states_(&ids, query_timeout).await {
                 Ok((onlines, offlines)) => {
                     f(onlines, offlines);
@@ -635,6 +632,9 @@ pub async fn query_online_states<F: FnOnce(Vec<String>, Vec<String>)>(ids: Vec<S
             }
 
             sleep(1.5).await;
+            if SHOULD_EXIT.load(Ordering::SeqCst) {
+                break;
+            }
         }
     }
 }
