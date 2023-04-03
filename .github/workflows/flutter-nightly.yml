@@ -15,7 +15,7 @@ env:
   LLVM_VERSION: "10.0"
   FLUTTER_VERSION: "3.0.5"
   TAG_NAME: "nightly"
-  VCPKG_COMMIT_ID: '6ca56aeb457f033d344a7106cb3f9f1abf8f4e98'
+  VCPKG_COMMIT_ID: '69efe9cc2df0015f0bb2d37d55acde4a75c9a25b'
   VERSION: "1.3.2"
 
 jobs:
