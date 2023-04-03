@@ -1,11 +1,16 @@
-name: Build the flutter version of the RustDesk 
+name: Flutter Nightly Build
 
 on:
-  workflow_call:
-    inputs:
-      upload-artifact:
-        type: boolean
-        default: true
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - master
+      - fromstable
+    tags:
+      - '*'
+    paths-ignore:
+      - ".github/**"
 
 env:
   LLVM_VERSION: "15.0.6"
