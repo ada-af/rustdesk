@@ -59,11 +59,11 @@ dependencies:
     window_manager:
         git:
             url: https://github.com/Kingtous/rustdesk_window_manager
-            ref: 32b24c66151b72bba033ef8b954486aa9351d97b 
+            ref: 94ff0eeb7e20e93f50022b2090f0b6ffb725c7df
     desktop_multi_window:
         git:
             url: https://github.com/Kingtous/rustdesk_desktop_multi_window
-            ref: 8ee8eb59cabf6ac83a13fe002de7d4a231263a58
+            ref: 6cd00db1d68443aeeb13dc89f6a090a0ad5dbb3e
     freezed_annotation: ^2.0.3
     tray_manager:
         git:
@@ -86,7 +86,8 @@ dependencies:
     rxdart: ^0.27.5
     file_picker: ^5.1.0
     flutter_svg: ^1.1.5
-    flutter_improved_scrolling: ^0.0.3
+    flutter_improved_scrolling:
+        ^0.0.3
         # currently, we use flutter 3.0.5 for windows build, latest for other builds.
         #
         # for flutter 3.0.5, please use official version(just comment code below).
@@ -106,7 +107,7 @@ dependencies:
 dev_dependencies:
     icons_launcher: ^2.0.4
     #flutter_test:
-        #sdk: flutter
+    #sdk: flutter
     build_runner: ^2.1.11
     freezed: ^2.0.3
     flutter_lints: ^2.0.0
@@ -150,8 +151,6 @@ flutter:
         - family: PeerSearchbar
           fonts:
               - asset: assets/peer_searchbar.ttf
-
-              
 
     # An image asset can refer to one or more resolution-specific "variants", see
     # https://flutter.dev/assets-and-images/#resolution-aware.
