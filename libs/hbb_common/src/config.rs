@@ -318,7 +318,7 @@ pub fn load_path<T: serde::Serialize + serde::de::DeserializeOwned + Default + s
 #[inline]
 pub fn store_path<T: serde::Serialize>(path: PathBuf, cfg: T) -> crate::ResultType<()> {
     log::debug!("{}", path.display());
-    log::debug!("{:#?}");
+    log::debug!("{:?}", cfg);
     Ok(confy::store_path(path, cfg)?)
 }
 
@@ -329,7 +329,7 @@ impl Config {
         let file = Self::file_(suffix);
         log::debug!("Configuration path: {}", file.display());
         let cfg = load_path(file);
-        log::debug!("{:#?}", cfg);
+        log::debug!("{:?}", cfg);
         if suffix.is_empty() {
             log::trace!("{:?}", cfg);
         }
