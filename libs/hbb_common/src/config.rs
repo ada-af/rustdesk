@@ -317,6 +317,8 @@ pub fn load_path<T: serde::Serialize + serde::de::DeserializeOwned + Default + s
 
 #[inline]
 pub fn store_path<T: serde::Serialize>(path: PathBuf, cfg: T) -> crate::ResultType<()> {
+    log::debug!("{}", path);
+    log::debug!("{}", cfg);
     Ok(confy::store_path(path, cfg)?)
 }
 
