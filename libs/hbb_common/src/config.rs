@@ -327,6 +327,7 @@ impl Config {
         let file = Self::file_(suffix);
         log::debug!("Configuration path: {}", file.display());
         let cfg = load_path(file);
+        log::debug!("{}", cfg);
         if suffix.is_empty() {
             log::trace!("{:?}", cfg);
         }
